@@ -395,8 +395,8 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		hasOrigin          bool
 		np                 *AstNodePairT
 		startDepth         = 0
-		startMatchId       = uint32(0)
-		startParentMatchId = uint32(0)
+		startMatchId       = uint32(1)
+		startParentMatchId = uint32(1)
 		err                error
 	)
 
