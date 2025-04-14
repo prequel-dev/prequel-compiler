@@ -20,8 +20,8 @@ var (
 	ErrNoFields             = errors.New("no fields")
 )
 
-func GetLogMatchSubject(ruleId string, depth int, matcherId uint32) string {
-	return fmt.Sprintf(SubjectLogMatch, ruleId, depth, matcherId)
+func GetLogMatchSubject(ruleHash string, depth int, matcherId uint32) string {
+	return fmt.Sprintf(SubjectLogMatch, ruleHash, depth, matcherId)
 }
 
 func toLogResets(terms []ast.AstFieldT) []match.ResetT {
