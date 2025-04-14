@@ -1,8 +1,9 @@
-module github.com/prequel-dev/prequel-compiler
+module github.com/tonymeehan/prequel-compiler
 
 go 1.24.1
 
 require (
+	github.com/prequel-dev/prequel-compiler v0.0.2
 	github.com/prequel-dev/prequel-logmatch v0.0.10
 	github.com/rs/zerolog v1.34.0
 	github.com/tinylib/msgp v1.2.5
