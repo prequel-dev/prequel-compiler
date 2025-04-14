@@ -161,7 +161,7 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 	for i, child := range node.Children {
 
 		var (
-			mid       = uint32(i)
+			mid       = uint32(i + 1)
 			childNode *parser.NodeT
 			ok        bool
 		)
