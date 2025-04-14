@@ -428,20 +428,20 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 
 	switch o := node.Object.(type) {
 	case *AstSeqMatcherT:
-		obj = fmt.Sprintf("%s.%d.%d.%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Order), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.depth_%d.match_id_%d.parent_match_id_%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Order), len(o.Negate), node.Metadata.Scope)
 	case *AstSetMatcherT:
-		obj = fmt.Sprintf("%s.%d.%d.%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.depth_%d.match_id_%d.parent_match_id_%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
 	case *AstLogMatcherT:
-		obj = fmt.Sprintf("%s.%d.%d.%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.depth_%d.match_id_%d.parent_match_id_%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
 	case *AstDescriptorT:
-		obj = fmt.Sprintf("%s.%d.%d.%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.depth_%d.match_id_%d.parent_match_id_%d scope=%s", node.Metadata.Type, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, node.Metadata.Scope)
 	default:
 		return fmt.Errorf("unknown object type: %T", o)
 	}
 
 	indent := strings.Repeat("  ", depth)
 
-	if _, err = wr.Write([]byte(fmt.Sprintf("%d: %s%s\n", depth, indent, obj))); err != nil {
+	if _, err = wr.Write([]byte(fmt.Sprintf("depth_%d: %s%s\n", depth, indent, obj))); err != nil {
 		return err
 	}
 
