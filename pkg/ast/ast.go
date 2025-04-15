@@ -234,7 +234,6 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 			addNegateOpts(newNp.Descriptor, negateOpts)
 
 			astNode.Children = append(astNode.Children, newNp.Match, newNp.Descriptor)
-			//astNode.Metadata.MatchId = *matchId
 			astNode.Metadata.Depth = newNp.Match.Metadata.Depth
 		}
 	}
