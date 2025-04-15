@@ -27,7 +27,8 @@ type AssertParamsT struct {
 	RuleHash      string
 	MatchId       uint32
 	ParentMatchId uint32
-	Depth         int
+	Depth         uint32
+	TermIdx       uint32
 	Subject       string
 }
 
