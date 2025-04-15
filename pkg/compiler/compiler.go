@@ -34,7 +34,7 @@ type ObjT struct {
 	RuleHash      string           `json:"rule_hash"`
 	MatchId       uint32           `json:"match_id"`
 	ParentMatchId uint32           `json:"parent_match_id"`
-	Depth         int              `json:"depth"`
+	Depth         uint32           `json:"depth"`
 	Scope         string           `json:"scope"`
 	Type          ast.AstNodeTypeT `json:"type"`
 	Event         ast.AstEventT    `json:"event"`
@@ -182,8 +182,8 @@ func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
 	for _, obj := range outObjs {
 		log.Info().
 			Str("obj.type", obj.Type.String()).
-			Int("depth", obj.Depth).
-			Int("match_id", int(obj.MatchId)).
+			Uint32("depth", obj.Depth).
+			Uint32("match_id", obj.MatchId).
 			Msg("Compiled object")
 	}
 

@@ -20,7 +20,7 @@ var (
 	ErrNoFields             = errors.New("no fields")
 )
 
-func GetLogMatchSubject(ruleHash string, depth int, matcherId uint32) string {
+func GetLogMatchSubject(ruleHash string, depth uint32, matcherId uint32) string {
 	return fmt.Sprintf(SubjectLogMatch, ruleHash, depth, matcherId)
 }
 
