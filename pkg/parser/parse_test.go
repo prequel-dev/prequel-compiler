@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/prequel-dev/prequel-compiler/pkg/testdata"
 	"github.com/prequel-dev/prequel-core/pkg/logz"
-	"github.com/tonymeehan/prequel-compiler/pkg/testdata"
 )
 
 // traverses the tree and collects node types in DFS pre-order (root, then children)
