@@ -17,6 +17,8 @@ github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c/go.mod h1:RqIHx9QI
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/prequel-dev/prequel-compiler v0.0.2 h1:n7LaoxtxrPDB+ib5YsGK+VY5OVXZRWXXKeAOMm3oLpU=
 github.com/prequel-dev/prequel-compiler v0.0.2/go.mod h1:QVq33Sxlexq/ikDKqNsMQMKK+ga9aDgQemQZFNUXxGI=
+github.com/prequel-dev/prequel-core v0.0.37 h1:EmZFseykkHvFwOX6cklALxSP0gQfNNAmhuDBwD+0Mk0=
+github.com/prequel-dev/prequel-core v0.0.37/go.mod h1:f31ABZHxMr2L0OM5jRx5tNEvst7zhEHI0KCBZAKavNQ=
 github.com/prequel-dev/prequel-logmatch v0.0.10 h1:dM1xvsyeKqlh0tNNG6MZxuCOLIDASDaq9EDxltQ8CCs=
 github.com/prequel-dev/prequel-logmatch v0.0.10/go.mod h1:Dpfd/79s8vMCmIdmNQ5kC8WAvw/XjOd2z6wEIe3Lkck=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=

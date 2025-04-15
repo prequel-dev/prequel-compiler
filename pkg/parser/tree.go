@@ -18,6 +18,10 @@ const (
 	NodeTypeSetNegSingle NodeTypeT = "set_neg_single"
 )
 
+func (t NodeTypeT) String() string {
+	return string(t)
+}
+
 var (
 	ErrNotSupported = errors.New("not supported")
 	ErrTermNotFound = errors.New("term not found")

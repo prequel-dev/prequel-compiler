@@ -111,7 +111,7 @@ func isRootMatcher(node *parser.NodeT) bool {
 }
 
 // buildTreeForRootMatcher handles the logic for a node that is a root matcher.
-func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, parentMatchId, matchId uint32, hasOrigin *bool) error {
+func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, parentMatchId uint32, matchId uint32, hasOrigin *bool) error {
 
 	var (
 		np  *AstNodePairT
@@ -154,17 +154,22 @@ func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, p
 
 // buildTreeForChildren handles the logic for a node that is not a root matcher,
 // i.e., it processes child nodes recursively.
-func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matchId uint32, hasOrigin *bool) error {
+func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matchId *uint32, hasOrigin *bool) error {
 
-	var negateOpts *parser.NegateOptsT
+	var (
+		negateOpts    *parser.NegateOptsT
+		parentMatchId = *matchId
+	)
 
-	for i, child := range node.Children {
+	for _, child := range node.Children {
 
 		var (
-			mid       = uint32(i + 1)
 			childNode *parser.NodeT
 			ok        bool
 		)
+
+		// Increment the match id globally for this rule for each node in the tree
+		*matchId++
 
 		if childNode, ok = child.(*parser.NodeT); !ok {
 			log.Error().
@@ -206,7 +211,7 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 				return ErrInvalidEventType
 			}
 
-			if np, err = buildMatcherNodes(childNode, depth+1, matchId, mid); err != nil {
+			if np, err = buildMatcherNodes(childNode, depth+1, parentMatchId, *matchId); err != nil {
 				return err
 			}
 
@@ -222,14 +227,14 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 			)
 
 			// Otherwise, recurse
-			if newNp, err = buildTree(childNode, depth+1, matchId, mid, hasOrigin); err != nil {
+			if newNp, err = buildTree(childNode, depth+1, parentMatchId, matchId, hasOrigin); err != nil {
 				return err
 			}
 
 			addNegateOpts(newNp.Descriptor, negateOpts)
 
 			astNode.Children = append(astNode.Children, newNp.Match, newNp.Descriptor)
-			astNode.Metadata.MatchId = mid
+			//astNode.Metadata.MatchId = *matchId
 			astNode.Metadata.Depth = newNp.Match.Metadata.Depth
 		}
 	}
@@ -253,7 +258,7 @@ func addNegateOpts(desc *AstNodeT, negateOpts *parser.NegateOptsT) {
 }
 
 // buildTree constructs the AST from the given parser node.
-func buildTree(node *parser.NodeT, depth int, parentMatchId, matchId uint32, hasOrigin *bool) (*AstNodePairT, error) {
+func buildTree(node *parser.NodeT, depth int, parentMatchId uint32, matchId *uint32, hasOrigin *bool) (*AstNodePairT, error) {
 
 	var (
 		astNode *AstNodeT
@@ -281,7 +286,6 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId, matchId uint32, has
 		return nil, ErrInvalidNodeType
 	}
 
-	// Construct the AST node
 	astNode = &AstNodeT{
 		Metadata: AstMetadataT{
 			RuleId:        node.Metadata.RuleId,
@@ -290,13 +294,14 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId, matchId uint32, has
 			Scope:         schema.ScopeCluster,
 			Depth:         depth,
 			ParentMatchId: parentMatchId,
+			MatchId:       *matchId,
 		},
 		NegIdx: node.NegIdx,
 	}
 
 	// Delegate to helper functions based on whether it's a root matcher
 	if isRootMatcher(node) {
-		if err = buildTreeForRootMatcher(node, astNode, depth, parentMatchId, matchId, hasOrigin); err != nil {
+		if err = buildTreeForRootMatcher(node, astNode, depth, parentMatchId, *matchId, hasOrigin); err != nil {
 			return nil, err
 		}
 	} else {
@@ -306,7 +311,7 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId, matchId uint32, has
 	}
 
 	// Construct the final node pair via state machine
-	if np, err = buildStateMachine(node, astNode.Children, depth, parentMatchId, matchId); err != nil {
+	if np, err = buildStateMachine(node, astNode.Children, depth, astNode.Metadata.ParentMatchId, astNode.Metadata.MatchId); err != nil {
 		return nil, err
 	}
 
@@ -392,26 +397,29 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		ast = &AstT{
 			Nodes: make([]*AstNodeT, 0),
 		}
-		hasOrigin          bool
-		np                 *AstNodePairT
-		startDepth         = 0
-		startMatchId       = uint32(1)
-		startParentMatchId = uint32(1)
-		err                error
+		hasOrigin                        bool
+		np                               *AstNodePairT
+		startDepth                       = 0
+		startMatchId, startParentMatchId uint32
+		err                              error
 	)
 
 	for _, rule := range tree.Nodes {
 
-		if np, err = buildTree(rule, startDepth, startParentMatchId, startMatchId, &hasOrigin); err != nil {
+		startMatchId = uint32(1)
+		startParentMatchId = uint32(1)
+
+		if np, err = buildTree(rule, startDepth, startParentMatchId, &startMatchId, &hasOrigin); err != nil {
 			return nil, err
 		}
 
 		if !hasOrigin {
-			log.Error().Interface("rule", rule).Msg("Rule has no origin event")
+			log.Error().Any("rule", rule).Msg("Rule has no origin event")
 			return nil, ErrMissingOrigin
 		}
 
-		log.Debug().Interface("np", np).Msg("Appending nodes")
+		log.Debug().Any("np", np).Msg("Appending root nodes for rule")
+
 		ast.Nodes = append(ast.Nodes, np.Match)
 		ast.Nodes = append(ast.Nodes, np.Descriptor)
 	}
@@ -428,13 +436,49 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 
 	switch o := node.Object.(type) {
 	case *AstSeqMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.RuleHash, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Order), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+			node.Metadata.Type,
+			node.Metadata.RuleHash,
+			node.Metadata.Depth,
+			node.Metadata.MatchId,
+			node.Metadata.ParentMatchId,
+			o.Window,
+			len(o.Order),
+			len(o.Negate),
+			node.Metadata.Scope,
+		)
 	case *AstSetMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.RuleHash, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+			node.Metadata.Type,
+			node.Metadata.RuleHash,
+			node.Metadata.Depth,
+			node.Metadata.MatchId,
+			node.Metadata.ParentMatchId,
+			o.Window,
+			len(o.Match),
+			len(o.Negate),
+			node.Metadata.Scope,
+		)
 	case *AstLogMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s", node.Metadata.Type, node.Metadata.RuleHash, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, o.Window, len(o.Match), len(o.Negate), node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+			node.Metadata.Type,
+			node.Metadata.RuleHash,
+			node.Metadata.Depth,
+			node.Metadata.MatchId,
+			node.Metadata.ParentMatchId,
+			o.Window,
+			len(o.Match),
+			len(o.Negate),
+			node.Metadata.Scope,
+		)
 	case *AstDescriptorT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d scope=%s", node.Metadata.Type, node.Metadata.RuleHash, node.Metadata.Depth, node.Metadata.MatchId, node.Metadata.ParentMatchId, node.Metadata.Scope)
+		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d scope=%s",
+			node.Metadata.Type,
+			node.Metadata.RuleHash,
+			node.Metadata.Depth,
+			node.Metadata.MatchId,
+			node.Metadata.ParentMatchId,
+			node.Metadata.Scope)
 	default:
 		return fmt.Errorf("unknown object type: %T", o)
 	}
