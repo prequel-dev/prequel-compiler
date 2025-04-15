@@ -1,0 +1,22 @@
+depth_0: machine_seq.2KdXQZDAfRbYcH9FBDteBS.0.1 pmid=1 w=30s pos_terms=3 neg_terms=1 scope=cluster
+depth_1:   log_seq.2KdXQZDAfRbYcH9FBDteBS.1.2 pmid=1 w=10s pos_terms=11 neg_terms=1 scope=node
+depth_1:   desc.2KdXQZDAfRbYcH9FBDteBS.1.2 pmid=1 scope=cluster
+depth_1:   machine_seq.2KdXQZDAfRbYcH9FBDteBS.1.3 pmid=1 w=5s pos_terms=3 neg_terms=0 scope=cluster
+depth_2:     log_seq.2KdXQZDAfRbYcH9FBDteBS.2.4 pmid=3 w=1s pos_terms=2 neg_terms=0 scope=node
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.4 pmid=3 scope=cluster
+depth_2:     log_set.2KdXQZDAfRbYcH9FBDteBS.2.5 pmid=3 w=0s pos_terms=1 neg_terms=0 scope=node
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.5 pmid=3 scope=cluster
+depth_2:     log_set.2KdXQZDAfRbYcH9FBDteBS.2.6 pmid=3 w=0s pos_terms=1 neg_terms=0 scope=cluster
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.6 pmid=3 scope=cluster
+depth_1:   desc.2KdXQZDAfRbYcH9FBDteBS.1.3 pmid=1 scope=cluster
+depth_1:   machine_seq.2KdXQZDAfRbYcH9FBDteBS.1.7 pmid=1 w=5s pos_terms=3 neg_terms=0 scope=cluster
+depth_2:     log_seq.2KdXQZDAfRbYcH9FBDteBS.2.8 pmid=7 w=1s pos_terms=2 neg_terms=0 scope=node
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.8 pmid=7 scope=cluster
+depth_2:     log_set.2KdXQZDAfRbYcH9FBDteBS.2.9 pmid=7 w=0s pos_terms=1 neg_terms=0 scope=node
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.9 pmid=7 scope=cluster
+depth_2:     log_set.2KdXQZDAfRbYcH9FBDteBS.2.10 pmid=7 w=0s pos_terms=1 neg_terms=0 scope=cluster
+depth_2:     desc.2KdXQZDAfRbYcH9FBDteBS.2.10 pmid=7 scope=cluster
+depth_1:   desc.2KdXQZDAfRbYcH9FBDteBS.1.7 pmid=1 scope=cluster
+depth_1:   log_set.2KdXQZDAfRbYcH9FBDteBS.1.11 pmid=1 w=0s pos_terms=1 neg_terms=0 scope=cluster
+depth_1:   desc.2KdXQZDAfRbYcH9FBDteBS.1.11 pmid=1 scope=cluster
+depth_0: desc.2KdXQZDAfRbYcH9FBDteBS.0.1 pmid=1 scope=cluster

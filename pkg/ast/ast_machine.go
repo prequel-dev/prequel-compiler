@@ -27,7 +27,7 @@ type AstSetMatcherT struct {
 	Window       time.Duration
 }
 
-func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth int, parentMatchId uint32, matchId uint32, t AstNodeTypeT) (*AstNodePairT, error) {
+func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId uint32, t AstNodeTypeT) (*AstNodePairT, error) {
 	var (
 		seqMatcher *AstSeqMatcherT
 		setMatcher *AstSetMatcherT

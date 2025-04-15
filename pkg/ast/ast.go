@@ -64,7 +64,7 @@ type AstMetadataT struct {
 	RuleHash      string
 	MatchId       uint32
 	ParentMatchId uint32
-	Depth         int
+	Depth         uint32
 	NegateOpts    *AstNegateOptsT
 }
 
@@ -85,7 +85,8 @@ type AstNegateOptsT struct {
 type AstDescriptorT struct {
 	Type       AstNodeTypeT
 	MatchId    uint32
-	Depth      int
+	Depth      uint32
+	TermIdx    uint32
 	NegateOpts *AstNegateOptsT
 }
 
@@ -111,7 +112,7 @@ func isRootMatcher(node *parser.NodeT) bool {
 }
 
 // buildTreeForRootMatcher handles the logic for a node that is a root matcher.
-func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, parentMatchId uint32, matchId uint32, hasOrigin *bool) error {
+func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth, parentMatchId, matchId, termIdx uint32, hasOrigin *bool) error {
 
 	var (
 		np  *AstNodePairT
@@ -122,7 +123,7 @@ func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, p
 	if depth != 0 {
 		log.Error().
 			Interface("node", node).
-			Int("depth", depth).
+			Uint32("depth", depth).
 			Msg("Root matcher node at depth != 0")
 		return ErrInvalidNodeType
 	}
@@ -135,12 +136,12 @@ func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, p
 		if node.Metadata.Event.Source == "" {
 			log.Error().
 				Interface("node", node).
-				Int("depth", depth+1).
+				Uint32("depth", depth+1).
 				Msg("Event missing src")
 			return ErrInvalidEventType
 		}
 
-		if np, err = buildMatcherNodes(node, depth+1, parentMatchId, matchId); err != nil {
+		if np, err = buildMatcherNodes(node, depth+1, parentMatchId, matchId, termIdx); err != nil {
 			return err
 		}
 
@@ -154,16 +155,17 @@ func buildTreeForRootMatcher(node *parser.NodeT, astNode *AstNodeT, depth int, p
 
 // buildTreeForChildren handles the logic for a node that is not a root matcher,
 // i.e., it processes child nodes recursively.
-func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matchId *uint32, hasOrigin *bool) error {
+func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth uint32, matchId *uint32, hasOrigin *bool) error {
 
 	var (
 		negateOpts    *parser.NegateOptsT
 		parentMatchId = *matchId
 	)
 
-	for _, child := range node.Children {
+	for i, child := range node.Children {
 
 		var (
+			termIdx   = uint32(i)
 			childNode *parser.NodeT
 			ok        bool
 		)
@@ -174,7 +176,7 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 		if childNode, ok = child.(*parser.NodeT); !ok {
 			log.Error().
 				Interface("child", child).
-				Int("depth", depth+1).
+				Uint32("depth", depth+1).
 				Msg("Invalid child type")
 			return ErrInvalidNodeType
 		}
@@ -185,7 +187,7 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 			if negateOpts.Anchor > uint32(len(node.Children)) {
 				log.Error().
 					Interface("node", node).
-					Int("depth", depth+1).
+					Uint32("depth", depth+1).
 					Msg("Negate anchor is greater than the number of children")
 				return ErrInvalidAnchor
 			}
@@ -206,12 +208,12 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth int, matc
 			if childNode.Metadata.Event.Source == "" {
 				log.Error().
 					Interface("node", childNode).
-					Int("depth", depth+1).
+					Uint32("depth", depth+1).
 					Msg("Event missing src")
 				return ErrInvalidEventType
 			}
 
-			if np, err = buildMatcherNodes(childNode, depth+1, parentMatchId, *matchId); err != nil {
+			if np, err = buildMatcherNodes(childNode, depth+1, parentMatchId, *matchId, termIdx); err != nil {
 				return err
 			}
 
@@ -257,7 +259,7 @@ func addNegateOpts(desc *AstNodeT, negateOpts *parser.NegateOptsT) {
 }
 
 // buildTree constructs the AST from the given parser node.
-func buildTree(node *parser.NodeT, depth int, parentMatchId uint32, matchId *uint32, hasOrigin *bool) (*AstNodePairT, error) {
+func buildTree(node *parser.NodeT, depth, parentMatchId uint32, matchId *uint32, hasOrigin *bool) (*AstNodePairT, error) {
 
 	var (
 		astNode *AstNodeT
@@ -280,7 +282,7 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId uint32, matchId *uin
 	default:
 		log.Error().
 			Interface("node", node).
-			Int("depth", depth).
+			Uint32("depth", depth).
 			Msg("Invalid node type")
 		return nil, ErrInvalidNodeType
 	}
@@ -300,7 +302,7 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId uint32, matchId *uin
 
 	// Delegate to helper functions based on whether it's a root matcher
 	if isRootMatcher(node) {
-		if err = buildTreeForRootMatcher(node, astNode, depth, parentMatchId, *matchId, hasOrigin); err != nil {
+		if err = buildTreeForRootMatcher(node, astNode, depth, parentMatchId, *matchId, 0, hasOrigin); err != nil {
 			return nil, err
 		}
 	} else {
@@ -320,7 +322,7 @@ func buildTree(node *parser.NodeT, depth int, parentMatchId uint32, matchId *uin
 	return np, nil
 }
 
-func newAstNode(n *parser.NodeT, nodeType AstNodeTypeT, scope string, depth int, parentMatchId uint32, matchId uint32) *AstNodeT {
+func newAstNode(n *parser.NodeT, nodeType AstNodeTypeT, scope string, depth, parentMatchId, matchId uint32) *AstNodeT {
 	return &AstNodeT{
 		Metadata: AstMetadataT{
 			RuleId:        n.Metadata.RuleId,
@@ -335,22 +337,25 @@ func newAstNode(n *parser.NodeT, nodeType AstNodeTypeT, scope string, depth int,
 	}
 }
 
-func buildMatcherNodes(n *parser.NodeT, depth int, parentMatchId uint32, matchId uint32) (*AstNodePairT, error) {
+func buildMatcherNodes(n *parser.NodeT, depth, parentMatchId, matchId, termIdx uint32) (*AstNodePairT, error) {
 
 	switch n.Metadata.Type {
 	case parser.NodeTypeSeq, parser.NodeTypeSeqNegSingle, parser.NodeTypeSeqNeg:
-		return buildLog(n, NodeTypeLogSeq, depth, parentMatchId, matchId)
+		return buildLog(n, NodeTypeLogSeq, depth, parentMatchId, matchId, termIdx)
 
 	case parser.NodeTypeSet, parser.NodeTypeSetNegSingle, parser.NodeTypeSetNeg:
-		return buildLog(n, NodeTypeLogSet, depth, parentMatchId, matchId)
+		return buildLog(n, NodeTypeLogSet, depth, parentMatchId, matchId, termIdx)
 
 	default:
-		log.Error().Interface("node", n).Int("depth", depth).Msg("Invalid node type")
+		log.Error().
+			Any("node", n).
+			Uint32("depth", depth).
+			Msg("Invalid node type")
 		return nil, ErrInvalidNodeType
 	}
 }
 
-func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth int, parentMatchId uint32, matchId uint32) (*AstNodePairT, error) {
+func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId uint32) (*AstNodePairT, error) {
 
 	var (
 		typ AstNodeTypeT
@@ -396,11 +401,10 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		ast = &AstT{
 			Nodes: make([]*AstNodeT, 0),
 		}
-		hasOrigin                        bool
-		np                               *AstNodePairT
-		startDepth                       = 0
-		startMatchId, startParentMatchId uint32
-		err                              error
+		hasOrigin                                    bool
+		np                                           *AstNodePairT
+		startDepth, startMatchId, startParentMatchId uint32
+		err                                          error
 	)
 
 	for _, rule := range tree.Nodes {

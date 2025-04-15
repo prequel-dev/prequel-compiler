@@ -77,7 +77,7 @@ func validateLogSet(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error
 	return nil
 }
 
-func buildLog(n *parser.NodeT, t AstNodeTypeT, depth int, parentMatchId uint32, matchId uint32) (*AstNodePairT, error) {
+func buildLog(n *parser.NodeT, t AstNodeTypeT, depth, parentMatchId, matchId, termIdx uint32) (*AstNodePairT, error) {
 
 	var (
 		matchFields  = make([]AstFieldT, 0)
@@ -96,7 +96,7 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth int, parentMatchId uint32, 
 
 		// Children are expected to be scalar matcher values
 		if match, ok = child.(*parser.MatcherT); !ok {
-			log.Error().Interface("node", n).Int("depth", depth).Msg("Log set requires literal condition")
+			log.Error().Interface("node", n).Uint32("depth", depth).Msg("Log set requires literal condition")
 			return nil, ErrMissingScalar
 		}
 
@@ -105,14 +105,14 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth int, parentMatchId uint32, 
 			if field.Count > 1 {
 				for i := 0; i < field.Count; i++ {
 					if term, err = newMatchTerm(src, field); err != nil {
-						log.Error().Err(err).Interface("node", n).Int("depth", depth).Msg("Invalid match field term")
+						log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid match field term")
 						return nil, err
 					}
 					matchFields = append(matchFields, term)
 				}
 			} else {
 				if term, err = newMatchTerm(src, field); err != nil {
-					log.Error().Err(err).Interface("node", n).Int("depth", depth).Msg("Invalid match field term")
+					log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid match field term")
 					return nil, err
 				}
 				matchFields = append(matchFields, term)
@@ -124,14 +124,14 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth int, parentMatchId uint32, 
 			if field.Count > 1 {
 				for range field.Count {
 					if term, err = newNegateTerm(src, field); err != nil {
-						log.Error().Err(err).Interface("node", n).Int("depth", depth).Msg("Invalid negate field term")
+						log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid negate field term")
 						return nil, err
 					}
 					negateFields = append(negateFields, term)
 				}
 			} else {
 				if term, err = newNegateTerm(src, field); err != nil {
-					log.Error().Err(err).Interface("node", n).Int("depth", depth).Msg("Invalid negate field term")
+					log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid negate field term")
 					return nil, err
 				}
 				negateFields = append(negateFields, term)
@@ -150,7 +150,7 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth int, parentMatchId uint32, 
 		}
 	}
 
-	return buildLogNodes(t, n, depth, parentMatchId, matchId, matchFields, negateFields)
+	return buildLogNodes(t, n, depth, parentMatchId, matchId, termIdx, matchFields, negateFields)
 }
 
 func knownSrcField(src string, field parser.FieldT) (AstFieldT, error) {
@@ -256,7 +256,7 @@ func newNegateTerm(src string, field parser.FieldT) (AstFieldT, error) {
 	return t, nil
 }
 
-func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth int, parentMatchId uint32, matchId uint32, matchFields []AstFieldT, negateFields []AstFieldT) (*AstNodePairT, error) {
+func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth, parentMatchId, matchId, termIdx uint32, matchFields []AstFieldT, negateFields []AstFieldT) (*AstNodePairT, error) {
 	var (
 		scope      string
 		matchNode  *AstNodeT
@@ -286,6 +286,7 @@ func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth int, parentMatchId uin
 		Type:    NodeTypeLogSet,
 		MatchId: matchId,
 		Depth:   depth,
+		TermIdx: termIdx,
 	}
 
 	return &AstNodePairT{

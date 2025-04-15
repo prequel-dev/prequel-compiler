@@ -1,0 +1,4 @@
+depth_0: machine_seq.rdJLgqYgkEp8jg8Qks1qiq.0.1 pmid=1 w=10s pos_terms=1 neg_terms=0 scope=cluster
+depth_1:   log_seq.rdJLgqYgkEp8jg8Qks1qiq.1.1 pmid=1 w=10s pos_terms=3 neg_terms=0 scope=node
+depth_1:   desc.rdJLgqYgkEp8jg8Qks1qiq.1.1 pmid=1 scope=cluster
+depth_0: desc.rdJLgqYgkEp8jg8Qks1qiq.0.1 pmid=1 scope=cluster

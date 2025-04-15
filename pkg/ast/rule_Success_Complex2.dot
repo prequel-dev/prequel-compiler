@@ -1,0 +1,14 @@
+depth_0: machine_seq.rdJLgqYgkEp8jg8Qks1qiq.0.1 pmid=1 w=30s pos_terms=3 neg_terms=0 scope=cluster
+depth_1:   log_seq.rdJLgqYgkEp8jg8Qks1qiq.1.2 pmid=1 w=10s pos_terms=11 neg_terms=1 scope=node
+depth_1:   desc.rdJLgqYgkEp8jg8Qks1qiq.1.2 pmid=1 scope=cluster
+depth_1:   log_set.rdJLgqYgkEp8jg8Qks1qiq.1.3 pmid=1 w=1s pos_terms=1 neg_terms=1 scope=cluster
+depth_1:   desc.rdJLgqYgkEp8jg8Qks1qiq.1.3 pmid=1 scope=cluster
+depth_1:   machine_seq.rdJLgqYgkEp8jg8Qks1qiq.1.4 pmid=1 w=5s pos_terms=3 neg_terms=0 scope=cluster
+depth_2:     log_seq.rdJLgqYgkEp8jg8Qks1qiq.2.5 pmid=4 w=1s pos_terms=2 neg_terms=0 scope=node
+depth_2:     desc.rdJLgqYgkEp8jg8Qks1qiq.2.5 pmid=4 scope=cluster
+depth_2:     log_set.rdJLgqYgkEp8jg8Qks1qiq.2.6 pmid=4 w=0s pos_terms=1 neg_terms=0 scope=node
+depth_2:     desc.rdJLgqYgkEp8jg8Qks1qiq.2.6 pmid=4 scope=cluster
+depth_2:     log_set.rdJLgqYgkEp8jg8Qks1qiq.2.7 pmid=4 w=0s pos_terms=1 neg_terms=0 scope=cluster
+depth_2:     desc.rdJLgqYgkEp8jg8Qks1qiq.2.7 pmid=4 scope=cluster
+depth_1:   desc.rdJLgqYgkEp8jg8Qks1qiq.1.4 pmid=1 scope=cluster
+depth_0: desc.rdJLgqYgkEp8jg8Qks1qiq.0.1 pmid=1 scope=cluster
