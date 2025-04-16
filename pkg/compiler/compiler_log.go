@@ -76,6 +76,7 @@ func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (*ObjT, err
 		RuleId:   node.Metadata.RuleId,
 		RuleHash: node.Metadata.RuleHash,
 		MatchId:  mid,
+		TermIdx:  node.Metadata.TermIdx,
 		Subject:  GetLogMatchSubject(node.Metadata.RuleHash, node.Metadata.Depth, mid),
 		NodeType: node.Metadata.Type,
 		Origin:   lm.Event.Origin,

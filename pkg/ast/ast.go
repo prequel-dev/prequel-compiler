@@ -63,6 +63,7 @@ type AstMetadataT struct {
 	RuleId        string
 	RuleHash      string
 	MatchId       uint32
+	TermIdx       uint32
 	ParentMatchId uint32
 	Depth         uint32
 	NegateOpts    *AstNegateOptsT
@@ -86,7 +87,6 @@ type AstDescriptorT struct {
 	Type       AstNodeTypeT
 	MatchId    uint32
 	Depth      uint32
-	TermIdx    uint32
 	NegateOpts *AstNegateOptsT
 }
 
@@ -229,7 +229,7 @@ func buildTreeForChildren(node *parser.NodeT, astNode *AstNodeT, depth uint32, m
 			)
 
 			// Otherwise, recurse
-			if newNp, err = buildTree(childNode, depth+1, parentMatchId, matchId, hasOrigin); err != nil {
+			if newNp, err = buildTree(childNode, depth+1, parentMatchId, matchId, termIdx, hasOrigin); err != nil {
 				return err
 			}
 
@@ -259,7 +259,9 @@ func addNegateOpts(desc *AstNodeT, negateOpts *parser.NegateOptsT) {
 }
 
 // buildTree constructs the AST from the given parser node.
-func buildTree(node *parser.NodeT, depth, parentMatchId uint32, matchId *uint32, hasOrigin *bool) (*AstNodePairT, error) {
+func buildTree(node *parser.NodeT, depth, parentMatchId uint32, matchId *uint32, termIdx uint32, hasOrigin *bool) (*AstNodePairT, error) {
+
+	log.Info().Uint32("termIdx", termIdx).Msg("Building tree")
 
 	var (
 		astNode *AstNodeT
@@ -312,7 +314,7 @@ func buildTree(node *parser.NodeT, depth, parentMatchId uint32, matchId *uint32,
 	}
 
 	// Construct the final node pair via state machine
-	if np, err = buildStateMachine(node, astNode.Children, depth, astNode.Metadata.ParentMatchId, astNode.Metadata.MatchId); err != nil {
+	if np, err = buildStateMachine(node, astNode.Children, depth, astNode.Metadata.ParentMatchId, astNode.Metadata.MatchId, termIdx); err != nil {
 		return nil, err
 	}
 
@@ -322,12 +324,13 @@ func buildTree(node *parser.NodeT, depth, parentMatchId uint32, matchId *uint32,
 	return np, nil
 }
 
-func newAstNode(n *parser.NodeT, nodeType AstNodeTypeT, scope string, depth, parentMatchId, matchId uint32) *AstNodeT {
+func newAstNode(n *parser.NodeT, nodeType AstNodeTypeT, scope string, depth, parentMatchId, matchId, termIdx uint32) *AstNodeT {
 	return &AstNodeT{
 		Metadata: AstMetadataT{
 			RuleId:        n.Metadata.RuleId,
 			RuleHash:      n.Metadata.RuleHash,
 			MatchId:       matchId,
+			TermIdx:       termIdx,
 			ParentMatchId: parentMatchId,
 			Type:          nodeType,
 			Scope:         scope,
@@ -355,7 +358,7 @@ func buildMatcherNodes(n *parser.NodeT, depth, parentMatchId, matchId, termIdx u
 	}
 }
 
-func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId uint32) (*AstNodePairT, error) {
+func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId, termIdx uint32) (*AstNodePairT, error) {
 
 	var (
 		typ AstNodeTypeT
@@ -363,7 +366,6 @@ func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth, parentMatch
 
 	switch n.Metadata.Type {
 	case parser.NodeTypeSeq, parser.NodeTypeSeqNeg:
-
 		if n.Metadata.Window == 0 {
 			log.Error().
 				Any("node", children).
@@ -379,7 +381,7 @@ func buildStateMachine(n *parser.NodeT, children []*AstNodeT, depth, parentMatch
 		return nil, ErrInvalidNodeType
 	}
 
-	return buildMachineNodes(n, children, depth, parentMatchId, matchId, typ)
+	return buildMachineNodes(n, children, depth, parentMatchId, matchId, termIdx, typ)
 }
 
 func Build(data []byte) (*AstT, error) {
@@ -401,10 +403,10 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		ast = &AstT{
 			Nodes: make([]*AstNodeT, 0),
 		}
-		hasOrigin                                    bool
-		np                                           *AstNodePairT
-		startDepth, startMatchId, startParentMatchId uint32
-		err                                          error
+		hasOrigin                                                  bool
+		np                                                         *AstNodePairT
+		startDepth, startMatchId, startParentMatchId, startTermIdx uint32
+		err                                                        error
 	)
 
 	for _, rule := range tree.Nodes {
@@ -412,7 +414,7 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		startMatchId = uint32(1)
 		startParentMatchId = uint32(1)
 
-		if np, err = buildTree(rule, startDepth, startParentMatchId, &startMatchId, &hasOrigin); err != nil {
+		if np, err = buildTree(rule, startDepth, startParentMatchId, &startMatchId, startTermIdx, &hasOrigin); err != nil {
 			return nil, err
 		}
 
@@ -422,6 +424,9 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 		}
 
 		log.Debug().Any("np", np).Msg("Appending root nodes for rule")
+
+		//np.Match.Metadata.ParentMatchId = 0
+		//np.Descriptor.Metadata.ParentMatchId = 0
 
 		ast.Nodes = append(ast.Nodes, np.Match)
 		ast.Nodes = append(ast.Nodes, np.Descriptor)
@@ -439,11 +444,12 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 
 	switch o := node.Object.(type) {
 	case *AstSeqMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+		obj = fmt.Sprintf("%s.%s.%d.%d termIdx=%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
 			node.Metadata.Type,
 			node.Metadata.RuleHash,
 			node.Metadata.Depth,
 			node.Metadata.MatchId,
+			node.Metadata.TermIdx,
 			node.Metadata.ParentMatchId,
 			o.Window,
 			len(o.Order),
@@ -451,11 +457,12 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 			node.Metadata.Scope,
 		)
 	case *AstSetMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+		obj = fmt.Sprintf("%s.%s.%d.%d termIdx=%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
 			node.Metadata.Type,
 			node.Metadata.RuleHash,
 			node.Metadata.Depth,
 			node.Metadata.MatchId,
+			node.Metadata.TermIdx,
 			node.Metadata.ParentMatchId,
 			o.Window,
 			len(o.Match),
@@ -463,11 +470,12 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 			node.Metadata.Scope,
 		)
 	case *AstLogMatcherT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
+		obj = fmt.Sprintf("%s.%s.%d.%d termIdx=%d pmid=%d w=%s pos_terms=%d neg_terms=%d scope=%s",
 			node.Metadata.Type,
 			node.Metadata.RuleHash,
 			node.Metadata.Depth,
 			node.Metadata.MatchId,
+			node.Metadata.TermIdx,
 			node.Metadata.ParentMatchId,
 			o.Window,
 			len(o.Match),
@@ -475,11 +483,12 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 			node.Metadata.Scope,
 		)
 	case *AstDescriptorT:
-		obj = fmt.Sprintf("%s.%s.%d.%d pmid=%d scope=%s",
+		obj = fmt.Sprintf("%s.%s.%d.%d termIdx=%d pmid=%d scope=%s",
 			node.Metadata.Type,
 			node.Metadata.RuleHash,
 			node.Metadata.Depth,
 			node.Metadata.MatchId,
+			node.Metadata.TermIdx,
 			node.Metadata.ParentMatchId,
 			node.Metadata.Scope)
 	default:

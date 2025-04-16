@@ -259,8 +259,8 @@ func newNegateTerm(src string, field parser.FieldT) (AstFieldT, error) {
 func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth, parentMatchId, matchId, termIdx uint32, matchFields []AstFieldT, negateFields []AstFieldT) (*AstNodePairT, error) {
 	var (
 		scope      string
+		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
 		matchNode  *AstNodeT
-		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId)
 	)
 
 	// TODO: revisit after data source abstraction
@@ -270,7 +270,7 @@ func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth, parentMatchId, matchI
 		scope = schema.ScopeNode
 	}
 
-	matchNode = newAstNode(n, t, scope, depth, parentMatchId, matchId)
+	matchNode = newAstNode(n, t, scope, depth, parentMatchId, matchId, termIdx)
 
 	matchNode.Object = &AstLogMatcherT{
 		Event: AstEventT{
@@ -286,7 +286,6 @@ func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth, parentMatchId, matchI
 		Type:    NodeTypeLogSet,
 		MatchId: matchId,
 		Depth:   depth,
-		TermIdx: termIdx,
 	}
 
 	return &AstNodePairT{

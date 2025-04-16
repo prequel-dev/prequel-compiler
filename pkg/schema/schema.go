@@ -23,11 +23,13 @@ const (
 	FieldName                 = "name"
 	FieldDisplayName          = "displayName"
 	FieldDescription          = "description"
-	FieldImageUrl             = "image_url"
+	FieldImageUrl             = "imageUrl"
+	FieldContainerName        = "containerName"
+	FieldContainerId          = "containerId"
 	FieldTimestamp            = "timestamp"
 	FieldK8sEventReason       = "reason"
 	FieldK8sEventType         = "type"
-	FieldK8sEventReasonDetail = "reason_detail"
+	FieldK8sEventReasonDetail = "reasonDetail"
 )
 
 const (

@@ -33,6 +33,7 @@ type ObjT struct {
 	RuleId        string           `json:"rule_id"`
 	RuleHash      string           `json:"rule_hash"`
 	MatchId       uint32           `json:"match_id"`
+	TermIdx       uint32           `json:"term_idx"`
 	ParentMatchId uint32           `json:"parent_match_id"`
 	Depth         uint32           `json:"depth"`
 	Scope         string           `json:"scope"`
@@ -96,6 +97,7 @@ func NewObj(node *ast.AstNodeT) *ObjT {
 		RuleId:        node.Metadata.RuleId,
 		RuleHash:      node.Metadata.RuleHash,
 		MatchId:       node.Metadata.MatchId,
+		TermIdx:       node.Metadata.TermIdx,
 		ParentMatchId: node.Metadata.ParentMatchId,
 		Depth:         node.Metadata.Depth,
 		Scope:         node.Metadata.Scope,

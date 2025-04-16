@@ -1210,6 +1210,12 @@ func (z *MatchesT) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "MatchId")
 				return
 			}
+		case "termidx":
+			z.TermIdx, err = dc.ReadUint32()
+			if err != nil {
+				err = msgp.WrapError(err, "TermIdx")
+				return
+			}
 		case "depth":
 			z.Depth, err = dc.ReadUint32()
 			if err != nil {
@@ -1241,9 +1247,9 @@ func (z *MatchesT) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 8
+	// map header, size 9
 	// write "ts"
-	err = en.Append(0x88, 0xa2, 0x74, 0x73)
+	err = en.Append(0x89, 0xa2, 0x74, 0x73)
 	if err != nil {
 		return
 	}
@@ -1292,6 +1298,16 @@ func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "MatchId")
 		return
 	}
+	// write "termidx"
+	err = en.Append(0xa7, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x64, 0x78)
+	if err != nil {
+		return
+	}
+	err = en.WriteUint32(z.TermIdx)
+	if err != nil {
+		err = msgp.WrapError(err, "TermIdx")
+		return
+	}
 	// write "depth"
 	err = en.Append(0xa5, 0x64, 0x65, 0x70, 0x74, 0x68)
 	if err != nil {
@@ -1328,9 +1344,9 @@ func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *MatchesT) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 8
+	// map header, size 9
 	// string "ts"
-	o = append(o, 0x88, 0xa2, 0x74, 0x73)
+	o = append(o, 0x89, 0xa2, 0x74, 0x73)
 	o = msgp.AppendInt64(o, z.Timestamp)
 	// string "spidx"
 	o = append(o, 0xa5, 0x73, 0x70, 0x69, 0x64, 0x78)
@@ -1344,6 +1360,9 @@ func (z *MatchesT) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "matchid"
 	o = append(o, 0xa7, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x64)
 	o = msgp.AppendUint32(o, z.MatchId)
+	// string "termidx"
+	o = append(o, 0xa7, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x64, 0x78)
+	o = msgp.AppendUint32(o, z.TermIdx)
 	// string "depth"
 	o = append(o, 0xa5, 0x64, 0x65, 0x70, 0x74, 0x68)
 	o = msgp.AppendUint32(o, z.Depth)
@@ -1408,6 +1427,12 @@ func (z *MatchesT) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "MatchId")
 				return
 			}
+		case "termidx":
+			z.TermIdx, bts, err = msgp.ReadUint32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "TermIdx")
+				return
+			}
 		case "depth":
 			z.Depth, bts, err = msgp.ReadUint32Bytes(bts)
 			if err != nil {
@@ -1440,6 +1465,6 @@ func (z *MatchesT) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *MatchesT) Msgsize() (s int) {
-	s = 1 + 3 + msgp.Int64Size + 6 + msgp.Int64Size + 4 + msgp.StringPrefixSize + len(z.RuleId) + 6 + msgp.StringPrefixSize + len(z.RuleHash) + 8 + msgp.Uint32Size + 6 + msgp.Uint32Size + 6 + msgp.StringPrefixSize + len(z.NodeType) + 5 + z.Hits.Msgsize()
+	s = 1 + 3 + msgp.Int64Size + 6 + msgp.Int64Size + 4 + msgp.StringPrefixSize + len(z.RuleId) + 6 + msgp.StringPrefixSize + len(z.RuleHash) + 8 + msgp.Uint32Size + 8 + msgp.Uint32Size + 6 + msgp.Uint32Size + 6 + msgp.StringPrefixSize + len(z.NodeType) + 5 + z.Hits.Msgsize()
 	return
 }

@@ -27,12 +27,12 @@ type AstSetMatcherT struct {
 	Window       time.Duration
 }
 
-func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId uint32, t AstNodeTypeT) (*AstNodePairT, error) {
+func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId, termIdx uint32, t AstNodeTypeT) (*AstNodePairT, error) {
 	var (
 		seqMatcher *AstSeqMatcherT
 		setMatcher *AstSetMatcherT
-		matchNode  = newAstNode(n, t, schema.ScopeCluster, depth, parentMatchId, matchId)
-		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId)
+		matchNode  = newAstNode(n, t, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
+		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
 		err        error
 	)
 
@@ -48,6 +48,13 @@ func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth, parentMatch
 		}
 		matchNode.Object = setMatcher
 	}
+
+	log.Info().
+		Uint32("matchId", matchId).
+		Uint32("depth", depth).
+		Uint32("parentMatchId", parentMatchId).
+		Uint32("termIdx", termIdx).
+		Msg("Building machine descriptor")
 
 	assertNode.Object = &AstDescriptorT{
 		Type:    t,

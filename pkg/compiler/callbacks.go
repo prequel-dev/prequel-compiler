@@ -28,7 +28,6 @@ type AssertParamsT struct {
 	MatchId       uint32
 	ParentMatchId uint32
 	Depth         uint32
-	TermIdx       uint32
 	Subject       string
 }
 
@@ -36,6 +35,7 @@ type MatchParamsT struct {
 	RuleId   string
 	RuleHash string
 	MatchId  uint32
+	TermIdx  uint32
 	Origin   bool
 	Subject  string
 	NodeType ast.AstNodeTypeT

@@ -11,6 +11,7 @@ type MatchesT struct {
 	RuleId    string `msg:"rid"`
 	RuleHash  string `msg:"rhash"`
 	MatchId   uint32 `msg:"matchid"`
+	TermIdx   uint32 `msg:"termidx"`
 	Depth     uint32 `msg:"depth"`
 	NodeType  string `msg:"ntype"`
 	Hits      HitsT  `msg:"hits"`
