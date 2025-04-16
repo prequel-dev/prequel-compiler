@@ -9,6 +9,7 @@ import (
 
 	"github.com/prequel-dev/prequel-compiler/pkg/testdata"
 	"github.com/prequel-dev/prequel-core/pkg/logz"
+	"github.com/rs/zerolog/log"
 )
 
 // traverses the tree and collects node types in DFS pre-order (root, then children)
@@ -48,6 +49,14 @@ func TestAstSuccess(t *testing.T) {
 			rule:              testdata.TestSuccessComplexRule4,
 			expectedNodeTypes: []string{"machine_seq", "log_seq", "desc", "machine_seq", "log_seq", "desc", "log_set", "desc", "log_set", "desc", "desc", "machine_seq", "log_seq", "desc", "log_set", "desc", "log_set", "desc", "desc", "log_set", "desc"},
 		},
+		"Success_NegateOptions1": {
+			rule:              testdata.TestSuccessNegateOptions1,
+			expectedNodeTypes: []string{"machine_seq", "log_seq", "desc"},
+		},
+		"Success_NegateOptions2": {
+			rule:              testdata.TestSuccessNegateOptions2,
+			expectedNodeTypes: []string{"machine_seq", "log_seq", "desc", "log_set", "desc", "log_set", "desc"},
+		},
 	}
 
 	for name, test := range tests {
@@ -64,6 +73,8 @@ func TestAstSuccess(t *testing.T) {
 			var actualNodes []string
 			gatherNodeTypes(ast.Nodes[0], &actualNodes)
 
+			log.Info().Strs("actual", actualNodes).Strs("expected", test.expectedNodeTypes).Msg("test")
+
 			if !reflect.DeepEqual(actualNodes, test.expectedNodeTypes) {
 				t.Errorf("gathered types = %v, want %v", actualNodes, test.expectedNodeTypes)
 			}
@@ -79,6 +90,18 @@ func TestAstFail(t *testing.T) {
 	}{
 		"Fail_MissingPositiveCondition": {
 			rule: testdata.TestFailMissingPositiveCondition,
+		},
+		"Fail_BadNegativeCondition1": {
+			rule: testdata.TestFailNegativeCondition1,
+		},
+		"Fail_BadNegativeCondition2": {
+			rule: testdata.TestFailNegativeCondition2,
+		},
+		"Fail_BadNegativeCondition3": {
+			rule: testdata.TestFailNegateOptions3,
+		},
+		"Fail_BadNegativeCondition4": {
+			rule: testdata.TestFailNegateOptions4,
 		},
 	}
 

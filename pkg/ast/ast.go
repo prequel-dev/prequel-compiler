@@ -57,6 +57,13 @@ type AstEventT struct {
 	Source string `json:"source"`
 }
 
+type AstNodeAddressT struct {
+	RuleHash string `json:"rule_hash"`
+	Depth    uint32 `json:"depth"`
+	MatchId  uint32 `json:"match_id"`
+	TermIdx  uint32 `json:"term_idx"`
+}
+
 type AstMetadataT struct {
 	Scope         string
 	Type          AstNodeTypeT
@@ -398,6 +405,10 @@ func Build(data []byte) (*AstT, error) {
 	return BuildTree(parseTree)
 }
 
+const (
+	RootMatchId = uint32(0)
+)
+
 func BuildTree(tree *parser.TreeT) (*AstT, error) {
 	var (
 		ast = &AstT{
@@ -425,8 +436,8 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 
 		log.Debug().Any("np", np).Msg("Appending root nodes for rule")
 
-		//np.Match.Metadata.ParentMatchId = 0
-		//np.Descriptor.Metadata.ParentMatchId = 0
+		np.Match.Metadata.ParentMatchId = RootMatchId
+		np.Descriptor.Metadata.ParentMatchId = RootMatchId
 
 		ast.Nodes = append(ast.Nodes, np.Match)
 		ast.Nodes = append(ast.Nodes, np.Descriptor)
