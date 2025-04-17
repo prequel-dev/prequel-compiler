@@ -1,7 +1,6 @@
 package datasrc
 
 import (
-	"io"
 	"os"
 	"time"
 
@@ -66,13 +65,7 @@ func Validate(ds *DataSources) error {
 
 func ParseFile(fn string) (*DataSources, error) {
 
-	fh, err := os.Open(fn)
-	if err != nil {
-		return nil, err
-	}
-	defer fh.Close()
-
-	data, err := io.ReadAll(fh)
+	data, err := os.ReadFile(fn)
 	if err != nil {
 		return nil, err
 	}

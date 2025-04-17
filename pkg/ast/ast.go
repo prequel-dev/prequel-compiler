@@ -441,7 +441,7 @@ func traverseTree(node *AstNodeT, wr io.Writer, depth int) error {
 
 	indent := strings.Repeat("  ", depth)
 
-	if _, err = wr.Write([]byte(fmt.Sprintf("%d: %s%s\n", depth, indent, obj))); err != nil {
+	if _, err = fmt.Fprintf(wr, "%d: %s%s\n", depth, indent, obj); err != nil {
 		return err
 	}
 
