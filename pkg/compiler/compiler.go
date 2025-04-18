@@ -147,6 +147,20 @@ func CompileTree(pt *parser.TreeT, scope string, opts ...CompilerOptT) (ObjsT, e
 	return compile(o, tree, scope)
 }
 
+func CompileAst(tree *ast.AstT, scope string, opts ...CompilerOptT) (ObjsT, error) {
+	var (
+		o = parseOpts(opts)
+	)
+
+	if o.debugTree != "" {
+		if err := ast.DrawTree(tree, o.debugTree); err != nil {
+			return nil, err
+		}
+	}
+
+	return compile(o, tree, scope)
+}
+
 func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
 
 	var (
