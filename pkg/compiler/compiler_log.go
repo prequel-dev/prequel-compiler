@@ -2,15 +2,11 @@ package compiler
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/ast"
+	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/prequel-dev/prequel-logmatch/pkg/match"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	SubjectLogMatch = "local.match.log.%s.%d.%d"
 )
 
 var (
@@ -19,10 +15,6 @@ var (
 	ErrSequenceSingleMatch  = errors.New("sequence with single match (use set instead)")
 	ErrNoFields             = errors.New("no fields")
 )
-
-func GetLogMatchSubject(ruleHash string, depth uint32, matcherId uint32) string {
-	return fmt.Sprintf(SubjectLogMatch, ruleHash, depth, matcherId)
-}
 
 func toLogResets(terms []ast.AstFieldT) []match.ResetT {
 	resets := make([]match.ResetT, 0, len(terms))
@@ -56,9 +48,9 @@ func toLogTerms(fields []ast.AstFieldT) []match.TermT {
 	return terms
 }
 
-func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (*ObjT, error) {
+func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT) (*ObjT, error) {
 	var (
-		obj = NewObj(node)
+		obj = NewObj(node, ObjTypeMatcher)
 		lm  *ast.AstLogMatcherT
 		ok  bool
 		err error
@@ -73,13 +65,9 @@ func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (*ObjT, err
 	obj.Event.Source = lm.Event.Source
 
 	params := MatchParamsT{
-		RuleId:   node.Metadata.RuleId,
-		RuleHash: node.Metadata.RuleHash,
-		MatchId:  mid,
-		TermIdx:  node.Metadata.TermIdx,
-		Subject:  GetLogMatchSubject(node.Metadata.RuleHash, node.Metadata.Depth, mid),
-		NodeType: node.Metadata.Type,
-		Origin:   lm.Event.Origin,
+		Address:       node.Metadata.Address,
+		ParentAddress: node.Metadata.ParentAddress,
+		Origin:        lm.Event.Origin,
 	}
 
 	obj.Cb = CbT{
@@ -87,14 +75,14 @@ func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (*ObjT, err
 	}
 
 	switch node.Metadata.Type {
-	case ast.NodeTypeLogSeq:
-		if obj.Object, err = makeLogSeqObjects(lm, node.NegIdx); err != nil {
+	case schema.NodeTypeLogSeq:
+		if obj.Object, err = makeLogSeqObjects(lm, node.Metadata.NegIdx); err != nil {
 			return nil, err
 		}
 
-	case ast.NodeTypeLogSet:
+	case schema.NodeTypeLogSet:
 
-		if obj.Object, err = makeLogSetObjects(lm, node.NegIdx); err != nil {
+		if obj.Object, err = makeLogSetObjects(lm, node.Metadata.NegIdx); err != nil {
 			return nil, err
 		}
 
@@ -114,7 +102,7 @@ func makeLogSeqObjects(lm *ast.AstLogMatcherT, negIdx int) (any, error) {
 	)
 
 	if negIdx > 0 {
-		log.Debug().Any("terms", toLogTerms(lm.Match)).Msg("Creating inverse match sequence")
+		log.Trace().Any("terms", toLogTerms(lm.Match)).Msg("Creating inverse match sequence")
 		if obj, err = match.NewInverseSeq(lm.Window.Nanoseconds(), toLogTerms(lm.Match), toLogResets(lm.Negate)); err != nil {
 			log.Error().Err(err).Msg("Failed to create inverse match sequence")
 			return nil, err

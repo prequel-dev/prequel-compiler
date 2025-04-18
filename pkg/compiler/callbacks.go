@@ -21,24 +21,14 @@ var (
 	ErrNotFound              = errors.New("not found")
 )
 
-type AssertParamsT struct {
-	Descriptor    *ast.AstDescriptorT
-	RuleId        string
-	RuleHash      string
-	MatchId       uint32
-	ParentMatchId uint32
-	Depth         uint32
-	Subject       string
+type MatchParamsT struct {
+	Address       *ast.AstNodeAddressT
+	ParentAddress *ast.AstNodeAddressT
+	Origin        bool
 }
 
-type MatchParamsT struct {
-	RuleId   string
-	RuleHash string
-	MatchId  uint32
-	TermIdx  uint32
-	Origin   bool
-	Subject  string
-	NodeType ast.AstNodeTypeT
+type AssertParamsT struct {
+	Address *ast.AstNodeAddressT
 }
 
 type CbMatchT func(ctx context.Context, m matchz.HitsT) error

@@ -6,14 +6,10 @@ var ErrNoMatches = errors.New("no matches")
 
 //go:generate msgp
 type MatchesT struct {
+	TermIdx   uint32 `msg:"tidx"`
 	Timestamp int64  `msg:"ts"`
 	SpoolIdx  int64  `msg:"spidx"`
-	RuleId    string `msg:"rid"`
-	RuleHash  string `msg:"rhash"`
-	MatchId   uint32 `msg:"matchid"`
-	TermIdx   uint32 `msg:"termidx"`
-	Depth     uint32 `msg:"depth"`
-	NodeType  string `msg:"ntype"`
+	Address   string `msg:"addr"`
 	Hits      HitsT  `msg:"hits"`
 }
 

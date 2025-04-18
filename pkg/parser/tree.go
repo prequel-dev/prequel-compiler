@@ -4,23 +4,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
 )
-
-type NodeTypeT string
-
-const (
-	NodeTypeSeq          NodeTypeT = "seq"
-	NodeTypeSeqNeg       NodeTypeT = "seq_neg"
-	NodeTypeSeqNegSingle NodeTypeT = "seq_neg_single"
-	NodeTypeSet          NodeTypeT = "set"
-	NodeTypeSetNeg       NodeTypeT = "set_neg"
-	NodeTypeSetNegSingle NodeTypeT = "set_neg_single"
-)
-
-func (t NodeTypeT) String() string {
-	return string(t)
-}
 
 var (
 	ErrNotSupported = errors.New("not supported")
@@ -41,13 +27,13 @@ type EventT struct {
 }
 
 type NodeMetadataT struct {
-	RuleHash     string        `json:"rule_hash"`
-	RuleId       string        `json:"rule_id"`
-	Window       time.Duration `json:"window"`
-	Event        *EventT       `json:"event"`
-	Type         NodeTypeT     `json:"type"`
-	Correlations []string      `json:"correlations"`
-	NegateOpts   *NegateOptsT  `json:"negate_opts"`
+	RuleHash     string           `json:"rule_hash"`
+	RuleId       string           `json:"rule_id"`
+	Window       time.Duration    `json:"window"`
+	Event        *EventT          `json:"event"`
+	Type         schema.NodeTypeT `json:"type"`
+	Correlations []string         `json:"correlations"`
+	NegateOpts   *NegateOptsT     `json:"negate_opts"`
 }
 
 type NodeT struct {
@@ -100,20 +86,16 @@ func initNode(ruleId, ruleHash string) *NodeT {
 	}
 }
 
-func seqNodeProps(node *NodeT, seq *ParseSequenceT, order, negate bool) error {
+func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool) error {
 
-	switch {
-	case order && negate:
-		node.Metadata.Type = NodeTypeSeqNeg
-	case order && !negate:
-		node.Metadata.Type = NodeTypeSeq
-	case !order && negate:
-		node.Metadata.Type = NodeTypeSeqNegSingle
-	case !order && !negate:
+	node.Metadata.Type = schema.NodeTypeSeq
+
+	if !order {
 		return ErrMissingOrder
 	}
 
 	if seq.Event != nil {
+		node.Metadata.Type = schema.NodeTypeLogSeq
 		node.Metadata.Event = newEvent(seq.Event)
 	}
 
@@ -132,20 +114,16 @@ func seqNodeProps(node *NodeT, seq *ParseSequenceT, order, negate bool) error {
 	return nil
 }
 
-func setNodeProps(node *NodeT, set *ParseSetT, match, negate bool) error {
+func setNodeProps(node *NodeT, set *ParseSetT, match bool) error {
 
-	switch {
-	case match && negate:
-		node.Metadata.Type = NodeTypeSetNeg
-	case match && !negate:
-		node.Metadata.Type = NodeTypeSet
-	case !match && negate:
-		node.Metadata.Type = NodeTypeSetNegSingle
-	case !match && !negate:
+	node.Metadata.Type = schema.NodeTypeSet
+
+	if !match {
 		return ErrMissingMatch
 	}
 
 	if set.Event != nil {
+		node.Metadata.Type = schema.NodeTypeLogSet
 		node.Metadata.Event = newEvent(set.Event)
 	}
 
@@ -200,7 +178,7 @@ func buildSequenceTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (
 	}
 
 	// Apply sequence-specific node properties
-	if err := seqNodeProps(root, seq, seq.Order != nil, seq.Negate != nil); err != nil {
+	if err := seqNodeProps(root, seq, seq.Order != nil); err != nil {
 		return nil, err
 	}
 
@@ -233,7 +211,7 @@ func buildSetTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (*Node
 	}
 
 	// Apply set-specific node properties
-	if err := setNodeProps(root, set, set.Match != nil, set.Negate != nil); err != nil {
+	if err := setNodeProps(root, set, set.Match != nil); err != nil {
 		return nil, err
 	}
 
@@ -387,7 +365,7 @@ func buildSequenceNode(parent *NodeT, terms map[string]ParseTermT, seq *ParseSeq
 	}
 
 	// Apply sequence-specific node properties
-	if err := seqNodeProps(node, seq, seq.Order != nil, seq.Negate != nil); err != nil {
+	if err := seqNodeProps(node, seq, seq.Order != nil); err != nil {
 		return nil, err
 	}
 
@@ -408,7 +386,7 @@ func buildSetNode(parent *NodeT, terms map[string]ParseTermT, set *ParseSetT) (*
 	}
 
 	// Apply set-specific node properties
-	if err := setNodeProps(node, set, set.Match != nil, set.Negate != nil); err != nil {
+	if err := setNodeProps(node, set, set.Match != nil); err != nil {
 		return nil, err
 	}
 

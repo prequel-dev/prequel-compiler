@@ -3,14 +3,29 @@ package schema
 import "errors"
 
 const (
-	ScopeCluster = "cluster"
-	ScopeNode    = "node"
+	ScopeOrganization = "organization"
+	ScopeCluster      = "cluster"
+	ScopeNode         = "node"
 )
 
 const (
 	EventTypeLog = "log"
 	EventTypeK8s = "k8s"
 )
+
+type NodeTypeT string
+
+const (
+	NodeTypeSeq    NodeTypeT = "machine_seq"
+	NodeTypeSet    NodeTypeT = "machine_set"
+	NodeTypeLogSeq NodeTypeT = "log_seq"
+	NodeTypeLogSet NodeTypeT = "log_set"
+	NodeTypeDesc   NodeTypeT = "desc"
+)
+
+func (t NodeTypeT) String() string {
+	return string(t)
+}
 
 const (
 	FieldId                   = "id"

@@ -14,154 +14,106 @@ var (
 )
 
 type AstSeqMatcherT struct {
-	Order        []*AstDescriptorT
-	Negate       []*AstDescriptorT
+	Order        []*AstMetadataT
+	Negate       []*AstMetadataT
 	Correlations []string
 	Window       time.Duration
 }
 
 type AstSetMatcherT struct {
-	Match        []*AstDescriptorT
-	Negate       []*AstDescriptorT
+	Match        []*AstMetadataT
+	Negate       []*AstMetadataT
 	Correlations []string
 	Window       time.Duration
 }
 
-func buildMachineNodes(n *parser.NodeT, children []*AstNodeT, depth, parentMatchId, matchId, termIdx uint32, t AstNodeTypeT) (*AstNodePairT, error) {
+func (b *builderT) buildMachineNode(parserNode *parser.NodeT, parentMachineAddress, machineAddress *AstNodeAddressT, children []*AstNodeT) (*AstNodeT, error) {
 	var (
 		seqMatcher *AstSeqMatcherT
 		setMatcher *AstSetMatcherT
-		matchNode  = newAstNode(n, t, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
-		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
+		matchNode  = newAstNode(parserNode, parserNode.Metadata.Type, schema.ScopeCluster, parentMachineAddress, machineAddress)
 		err        error
 	)
 
-	switch t {
-	case NodeTypeSeq:
-		if seqMatcher, err = buildSeq(n, children); err != nil {
+	switch parserNode.Metadata.Type {
+	case schema.NodeTypeSeq, schema.NodeTypeLogSeq:
+		matchNode.Metadata.Type = schema.NodeTypeSeq
+		if seqMatcher, err = buildSeqMatcher(parserNode, children); err != nil {
 			return nil, err
 		}
 		matchNode.Object = seqMatcher
-	case NodeTypeSet:
-		if setMatcher, err = buildSet(n, children); err != nil {
+	case schema.NodeTypeSet, schema.NodeTypeLogSet:
+		matchNode.Metadata.Type = schema.NodeTypeSet
+		if setMatcher, err = buildSetMatcher(parserNode, children); err != nil {
 			return nil, err
 		}
 		matchNode.Object = setMatcher
+	default:
+		log.Error().
+			Str("type", parserNode.Metadata.Type.String()).
+			Msg("Invalid node type")
+		return nil, ErrInvalidNodeType
 	}
 
-	log.Info().
-		Uint32("matchId", matchId).
-		Uint32("depth", depth).
-		Uint32("parentMatchId", parentMatchId).
-		Uint32("termIdx", termIdx).
-		Msg("Building machine descriptor")
-
-	assertNode.Object = &AstDescriptorT{
-		Type:    t,
-		MatchId: matchId,
-		Depth:   depth,
-	}
-
-	return &AstNodePairT{
-		Match:      matchNode,
-		Descriptor: assertNode,
-	}, nil
+	return matchNode, nil
 }
 
 // Iterate over children. Create descs and add them to the rule along with correlations
-func buildSeq(n *parser.NodeT, children []*AstNodeT) (*AstSeqMatcherT, error) {
-
+func buildSeqMatcher(n *parser.NodeT, children []*AstNodeT) (*AstSeqMatcherT, error) {
 	var (
 		sm = &AstSeqMatcherT{
-			Order:        make([]*AstDescriptorT, 0),
-			Negate:       make([]*AstDescriptorT, 0),
 			Correlations: make([]string, 0),
 			Window:       n.Metadata.Window,
 		}
-		descChild = 0
 	)
 
 	if n.Metadata.Correlations != nil {
 		sm.Correlations = n.Metadata.Correlations
 	}
 
-	for _, child := range children {
-
-		var (
-			desc *AstDescriptorT
-			ok   bool
-		)
-
-		if child.Metadata.Type == NodeTypeDesc {
-
-			if desc, ok = child.Object.(*AstDescriptorT); !ok {
-				return nil, ErrInvalidDescriptor
-			}
-
-			if n.NegIdx > 0 {
-				if descChild < n.NegIdx {
-					sm.Order = append(sm.Order, desc)
-				} else {
-					sm.Negate = append(sm.Negate, desc)
-				}
-			} else {
-				sm.Order = append(sm.Order, desc)
-			}
-
-			descChild++
-		}
-	}
+	sm.Order, sm.Negate = buildTermDescriptors(n, children)
 
 	return sm, nil
 }
 
 // Iterate over children. Create descs and add them to the rule along with correlations
-func buildSet(n *parser.NodeT, children []*AstNodeT) (*AstSetMatcherT, error) {
+func buildSetMatcher(n *parser.NodeT, children []*AstNodeT) (*AstSetMatcherT, error) {
 
 	var (
 		sm = &AstSetMatcherT{
-			Match:        make([]*AstDescriptorT, 0),
-			Negate:       make([]*AstDescriptorT, 0),
 			Correlations: make([]string, 0),
 			Window:       n.Metadata.Window,
 		}
-		descChild = 0
 	)
 
 	if n.Metadata.Correlations != nil {
 		sm.Correlations = n.Metadata.Correlations
 	}
 
-	for _, child := range children {
-
-		var (
-			desc *AstDescriptorT
-			ok   bool
-		)
-
-		if child.Metadata.Type == NodeTypeDesc {
-
-			if desc, ok = child.Object.(*AstDescriptorT); !ok {
-				return nil, ErrInvalidDescriptor
-			}
-
-			if n.NegIdx > 0 {
-				if descChild < n.NegIdx {
-					sm.Match = append(sm.Match, desc)
-				} else {
-					sm.Negate = append(sm.Negate, desc)
-				}
-			} else {
-				sm.Match = append(sm.Match, desc)
-			}
-
-			descChild++
-		}
-
-		log.Debug().
-			Interface("child_node", child).
-			Msg("Sequence child")
-	}
+	sm.Match, sm.Negate = buildTermDescriptors(n, children)
 
 	return sm, nil
+}
+
+func buildTermDescriptors(parserNode *parser.NodeT, children []*AstNodeT) ([]*AstMetadataT, []*AstMetadataT) {
+	var (
+		match   = make([]*AstMetadataT, 0)
+		negate  = make([]*AstMetadataT, 0)
+		descPos int
+	)
+
+	for _, child := range children {
+		if parserNode.NegIdx > 0 {
+			if descPos < parserNode.NegIdx {
+				match = append(match, &child.Metadata)
+			} else {
+				negate = append(negate, &child.Metadata)
+			}
+		} else {
+			match = append(match, &child.Metadata)
+		}
+		descPos++
+	}
+
+	return match, negate
 }

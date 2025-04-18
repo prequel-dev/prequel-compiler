@@ -6,6 +6,7 @@ import (
 
 	"github.com/prequel-dev/prequel-compiler/pkg/ast"
 	"github.com/prequel-dev/prequel-compiler/pkg/parser"
+	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
 )
 
@@ -29,18 +30,27 @@ type CbT struct {
 
 type ObjsT []*ObjT
 
+type ObjTypeT string
+
+const (
+	ObjTypeMatcher ObjTypeT = "match"
+	ObjTypeAssert  ObjTypeT = "assert"
+)
+
+func (o ObjTypeT) String() string {
+	return string(o)
+}
+
 type ObjT struct {
-	RuleId        string           `json:"rule_id"`
-	RuleHash      string           `json:"rule_hash"`
-	MatchId       uint32           `json:"match_id"`
-	TermIdx       uint32           `json:"term_idx"`
-	ParentMatchId uint32           `json:"parent_match_id"`
-	Depth         uint32           `json:"depth"`
-	Scope         string           `json:"scope"`
-	Type          ast.AstNodeTypeT `json:"type"`
-	Event         ast.AstEventT    `json:"event"`
-	Object        any              `json:"object"`
-	Cb            CbT              `json:"cb"`
+	RuleId        string               `json:"rule_id"`
+	Address       *ast.AstNodeAddressT `json:"address"`
+	ParentAddress *ast.AstNodeAddressT `json:"parent_address"`
+	Scope         string               `json:"scope"`
+	AbstractType  schema.NodeTypeT     `json:"abstract_type"`
+	ObjectType    ObjTypeT             `json:"object_type"`
+	Event         ast.AstEventT        `json:"event"`
+	Object        any                  `json:"object"`
+	Cb            CbT                  `json:"cb"`
 }
 
 type compilerOptsT struct {
@@ -51,7 +61,7 @@ type compilerOptsT struct {
 
 type CompilerOptT func(*compilerOptsT)
 type PluginI interface {
-	Compile(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (ObjsT, error)
+	Compile(runtime RuntimeI, node *ast.AstNodeT) (ObjsT, error)
 }
 
 func WithDebugTree(path string) CompilerOptT {
@@ -92,25 +102,24 @@ func traverseTree(node *ast.AstNodeT, scope string, callback func(node *ast.AstN
 	return callback(node)
 }
 
-func NewObj(node *ast.AstNodeT) *ObjT {
+func NewObj(node *ast.AstNodeT, objType ObjTypeT) *ObjT {
 	return &ObjT{
 		RuleId:        node.Metadata.RuleId,
-		RuleHash:      node.Metadata.RuleHash,
-		MatchId:       node.Metadata.MatchId,
-		TermIdx:       node.Metadata.TermIdx,
-		ParentMatchId: node.Metadata.ParentMatchId,
-		Depth:         node.Metadata.Depth,
+		Address:       node.Metadata.Address,
+		ParentAddress: node.Metadata.ParentAddress,
 		Scope:         node.Metadata.Scope,
-		Type:          node.Metadata.Type,
+		AbstractType:  node.Metadata.Type,
+		ObjectType:    objType,
 	}
 }
 
-func sortObjs(items []*ObjT, t ast.AstNodeTypeT) {
+// Should we sort by object type?
+func sortObjs(items []*ObjT, t schema.NodeTypeT) {
 	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].Type == t && items[j].Type != t {
+		if items[i].AbstractType == t && items[j].AbstractType != t {
 			return true
 		}
-		if items[j].Type == t && items[i].Type != t {
+		if items[j].AbstractType == t && items[i].AbstractType != t {
 			return false
 		}
 		return false
@@ -157,7 +166,7 @@ func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
 			return ErrUnsupportedScope
 		}
 
-		objs, err := plugin.Compile(o.runtime, node, node.Metadata.MatchId)
+		objs, err := plugin.Compile(o.runtime, node)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -177,15 +186,14 @@ func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
 		}
 	}
 
-	sortObjs(outObjs, ast.NodeTypeDesc)
-	sortObjs(outObjs, ast.NodeTypeSeq)
-	sortObjs(outObjs, ast.NodeTypeSet)
+	sortObjs(outObjs, schema.NodeTypeSeq)
+	sortObjs(outObjs, schema.NodeTypeSet)
 
 	for _, obj := range outObjs {
 		log.Info().
-			Str("obj.type", obj.Type.String()).
-			Uint32("depth", obj.Depth).
-			Uint32("match_id", obj.MatchId).
+			Str("abstract_type", obj.AbstractType.String()).
+			Str("abstract_address", obj.Address.String()).
+			Str("object_type", obj.ObjectType.String()).
 			Msg("Compiled object")
 	}
 

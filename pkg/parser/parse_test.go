@@ -49,12 +49,12 @@ func TestParseSuccess(t *testing.T) {
 	}{
 		"Success_Simple1": {
 			rule:               testdata.TestSuccessSimpleRule1,
-			expectedNodeTypes:  []string{"seq"},
+			expectedNodeTypes:  []string{"log_seq"},
 			expectedNegIndexes: []int{-1},
 		},
 		"Success_Complex2": {
 			rule:               testdata.TestSuccessComplexRule2,
-			expectedNodeTypes:  []string{"seq", "seq_neg", "set_neg", "seq", "seq", "set", "set"},
+			expectedNodeTypes:  []string{"machine_seq", "log_seq", "log_set", "machine_seq", "log_seq", "log_set", "log_set"},
 			expectedNegIndexes: []int{-1, 2, 1, -1, -1, -1, -1},
 		},
 	}

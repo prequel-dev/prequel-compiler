@@ -1180,6 +1180,12 @@ func (z *MatchesT) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
+		case "tidx":
+			z.TermIdx, err = dc.ReadUint32()
+			if err != nil {
+				err = msgp.WrapError(err, "TermIdx")
+				return
+			}
 		case "ts":
 			z.Timestamp, err = dc.ReadInt64()
 			if err != nil {
@@ -1192,40 +1198,10 @@ func (z *MatchesT) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "SpoolIdx")
 				return
 			}
-		case "rid":
-			z.RuleId, err = dc.ReadString()
+		case "addr":
+			z.Address, err = dc.ReadString()
 			if err != nil {
-				err = msgp.WrapError(err, "RuleId")
-				return
-			}
-		case "rhash":
-			z.RuleHash, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "RuleHash")
-				return
-			}
-		case "matchid":
-			z.MatchId, err = dc.ReadUint32()
-			if err != nil {
-				err = msgp.WrapError(err, "MatchId")
-				return
-			}
-		case "termidx":
-			z.TermIdx, err = dc.ReadUint32()
-			if err != nil {
-				err = msgp.WrapError(err, "TermIdx")
-				return
-			}
-		case "depth":
-			z.Depth, err = dc.ReadUint32()
-			if err != nil {
-				err = msgp.WrapError(err, "Depth")
-				return
-			}
-		case "ntype":
-			z.NodeType, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "NodeType")
+				err = msgp.WrapError(err, "Address")
 				return
 			}
 		case "hits":
@@ -1247,9 +1223,19 @@ func (z *MatchesT) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 9
+	// map header, size 5
+	// write "tidx"
+	err = en.Append(0x85, 0xa4, 0x74, 0x69, 0x64, 0x78)
+	if err != nil {
+		return
+	}
+	err = en.WriteUint32(z.TermIdx)
+	if err != nil {
+		err = msgp.WrapError(err, "TermIdx")
+		return
+	}
 	// write "ts"
-	err = en.Append(0x89, 0xa2, 0x74, 0x73)
+	err = en.Append(0xa2, 0x74, 0x73)
 	if err != nil {
 		return
 	}
@@ -1268,64 +1254,14 @@ func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "SpoolIdx")
 		return
 	}
-	// write "rid"
-	err = en.Append(0xa3, 0x72, 0x69, 0x64)
+	// write "addr"
+	err = en.Append(0xa4, 0x61, 0x64, 0x64, 0x72)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.RuleId)
+	err = en.WriteString(z.Address)
 	if err != nil {
-		err = msgp.WrapError(err, "RuleId")
-		return
-	}
-	// write "rhash"
-	err = en.Append(0xa5, 0x72, 0x68, 0x61, 0x73, 0x68)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.RuleHash)
-	if err != nil {
-		err = msgp.WrapError(err, "RuleHash")
-		return
-	}
-	// write "matchid"
-	err = en.Append(0xa7, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x64)
-	if err != nil {
-		return
-	}
-	err = en.WriteUint32(z.MatchId)
-	if err != nil {
-		err = msgp.WrapError(err, "MatchId")
-		return
-	}
-	// write "termidx"
-	err = en.Append(0xa7, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x64, 0x78)
-	if err != nil {
-		return
-	}
-	err = en.WriteUint32(z.TermIdx)
-	if err != nil {
-		err = msgp.WrapError(err, "TermIdx")
-		return
-	}
-	// write "depth"
-	err = en.Append(0xa5, 0x64, 0x65, 0x70, 0x74, 0x68)
-	if err != nil {
-		return
-	}
-	err = en.WriteUint32(z.Depth)
-	if err != nil {
-		err = msgp.WrapError(err, "Depth")
-		return
-	}
-	// write "ntype"
-	err = en.Append(0xa5, 0x6e, 0x74, 0x79, 0x70, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.NodeType)
-	if err != nil {
-		err = msgp.WrapError(err, "NodeType")
+		err = msgp.WrapError(err, "Address")
 		return
 	}
 	// write "hits"
@@ -1344,31 +1280,19 @@ func (z *MatchesT) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *MatchesT) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 9
+	// map header, size 5
+	// string "tidx"
+	o = append(o, 0x85, 0xa4, 0x74, 0x69, 0x64, 0x78)
+	o = msgp.AppendUint32(o, z.TermIdx)
 	// string "ts"
-	o = append(o, 0x89, 0xa2, 0x74, 0x73)
+	o = append(o, 0xa2, 0x74, 0x73)
 	o = msgp.AppendInt64(o, z.Timestamp)
 	// string "spidx"
 	o = append(o, 0xa5, 0x73, 0x70, 0x69, 0x64, 0x78)
 	o = msgp.AppendInt64(o, z.SpoolIdx)
-	// string "rid"
-	o = append(o, 0xa3, 0x72, 0x69, 0x64)
-	o = msgp.AppendString(o, z.RuleId)
-	// string "rhash"
-	o = append(o, 0xa5, 0x72, 0x68, 0x61, 0x73, 0x68)
-	o = msgp.AppendString(o, z.RuleHash)
-	// string "matchid"
-	o = append(o, 0xa7, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x64)
-	o = msgp.AppendUint32(o, z.MatchId)
-	// string "termidx"
-	o = append(o, 0xa7, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x64, 0x78)
-	o = msgp.AppendUint32(o, z.TermIdx)
-	// string "depth"
-	o = append(o, 0xa5, 0x64, 0x65, 0x70, 0x74, 0x68)
-	o = msgp.AppendUint32(o, z.Depth)
-	// string "ntype"
-	o = append(o, 0xa5, 0x6e, 0x74, 0x79, 0x70, 0x65)
-	o = msgp.AppendString(o, z.NodeType)
+	// string "addr"
+	o = append(o, 0xa4, 0x61, 0x64, 0x64, 0x72)
+	o = msgp.AppendString(o, z.Address)
 	// string "hits"
 	o = append(o, 0xa4, 0x68, 0x69, 0x74, 0x73)
 	o, err = z.Hits.MarshalMsg(o)
@@ -1397,6 +1321,12 @@ func (z *MatchesT) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
+		case "tidx":
+			z.TermIdx, bts, err = msgp.ReadUint32Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "TermIdx")
+				return
+			}
 		case "ts":
 			z.Timestamp, bts, err = msgp.ReadInt64Bytes(bts)
 			if err != nil {
@@ -1409,40 +1339,10 @@ func (z *MatchesT) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "SpoolIdx")
 				return
 			}
-		case "rid":
-			z.RuleId, bts, err = msgp.ReadStringBytes(bts)
+		case "addr":
+			z.Address, bts, err = msgp.ReadStringBytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "RuleId")
-				return
-			}
-		case "rhash":
-			z.RuleHash, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "RuleHash")
-				return
-			}
-		case "matchid":
-			z.MatchId, bts, err = msgp.ReadUint32Bytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "MatchId")
-				return
-			}
-		case "termidx":
-			z.TermIdx, bts, err = msgp.ReadUint32Bytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "TermIdx")
-				return
-			}
-		case "depth":
-			z.Depth, bts, err = msgp.ReadUint32Bytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "Depth")
-				return
-			}
-		case "ntype":
-			z.NodeType, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "NodeType")
+				err = msgp.WrapError(err, "Address")
 				return
 			}
 		case "hits":
@@ -1465,6 +1365,6 @@ func (z *MatchesT) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *MatchesT) Msgsize() (s int) {
-	s = 1 + 3 + msgp.Int64Size + 6 + msgp.Int64Size + 4 + msgp.StringPrefixSize + len(z.RuleId) + 6 + msgp.StringPrefixSize + len(z.RuleHash) + 8 + msgp.Uint32Size + 8 + msgp.Uint32Size + 6 + msgp.Uint32Size + 6 + msgp.StringPrefixSize + len(z.NodeType) + 5 + z.Hits.Msgsize()
+	s = 1 + 5 + msgp.Uint32Size + 3 + msgp.Int64Size + 6 + msgp.Int64Size + 5 + msgp.StringPrefixSize + len(z.Address) + 5 + z.Hits.Msgsize()
 	return
 }

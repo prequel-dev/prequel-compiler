@@ -27,12 +27,11 @@ type AstLogMatcherT struct {
 	Window time.Duration
 }
 
-func validateLogSeq(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error {
+func validateLogSeq(n *parser.NodeT, matches, negates int) error {
 
 	if matches <= 1 {
 		log.Error().
 			Any("node", n).
-			Str("type", t.String()).
 			Msg("Window requires two or more positive conditions")
 		return ErrSeqPosConditions
 	}
@@ -40,7 +39,6 @@ func validateLogSeq(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error
 	if n.Metadata.Window == 0 {
 		log.Error().
 			Any("node", n).
-			Str("type", t.String()).
 			Msg("Sequence requires a window")
 		return ErrInvalidWindow
 	}
@@ -57,12 +55,11 @@ func validateLogSeq(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error
 	return nil
 }
 
-func validateLogSet(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error {
+func validateLogSet(n *parser.NodeT, matches, negates int) error {
 
 	if matches > 1 && n.Metadata.Window == 0 {
 		log.Error().
 			Any("node", n).
-			Str("type", t.String()).
 			Msg("Window requires two or more positive conditions")
 		return ErrInvalidWindow
 	}
@@ -70,33 +67,32 @@ func validateLogSet(n *parser.NodeT, t AstNodeTypeT, matches, negates int) error
 	if negates > 0 && matches == 0 {
 		log.Error().
 			Any("node", n).
-			Str("type", t.String()).
 			Msg("Sets require one or more positive conditions under a match statement")
 		return ErrMissingPositiveMatchCondition
 	}
 	return nil
 }
 
-func buildLog(n *parser.NodeT, t AstNodeTypeT, depth, parentMatchId, matchId, termIdx uint32) (*AstNodePairT, error) {
+func (b *builderT) buildLogMatcherNode(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
 
 	var (
 		matchFields  = make([]AstFieldT, 0)
 		negateFields = make([]AstFieldT, 0)
+		zlog         = log.With().Any("address", machineAddress).Logger()
 		err          error
 	)
 
-	// Iterate over children scalars to validate
-	for _, child := range n.Children {
+	for _, child := range parserNode.Children {
 		var (
 			match *parser.MatcherT
 			term  AstFieldT
-			src   = n.Metadata.Event.Source
+			src   = parserNode.Metadata.Event.Source
 			ok    bool
 		)
 
 		// Children are expected to be scalar matcher values
 		if match, ok = child.(*parser.MatcherT); !ok {
-			log.Error().Interface("node", n).Uint32("depth", depth).Msg("Log set requires literal condition")
+			zlog.Error().Msg("Expected scalar value")
 			return nil, ErrMissingScalar
 		}
 
@@ -105,14 +101,14 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth, parentMatchId, matchId, te
 			if field.Count > 1 {
 				for i := 0; i < field.Count; i++ {
 					if term, err = newMatchTerm(src, field); err != nil {
-						log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid match field term")
+						zlog.Error().Err(err).Msg("Invalid match field term")
 						return nil, err
 					}
 					matchFields = append(matchFields, term)
 				}
 			} else {
 				if term, err = newMatchTerm(src, field); err != nil {
-					log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid match field term")
+					zlog.Error().Err(err).Msg("Invalid match field term")
 					return nil, err
 				}
 				matchFields = append(matchFields, term)
@@ -124,14 +120,14 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth, parentMatchId, matchId, te
 			if field.Count > 1 {
 				for range field.Count {
 					if term, err = newNegateTerm(src, field); err != nil {
-						log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid negate field term")
+						zlog.Error().Err(err).Msg("Invalid negate field term")
 						return nil, err
 					}
 					negateFields = append(negateFields, term)
 				}
 			} else {
 				if term, err = newNegateTerm(src, field); err != nil {
-					log.Error().Err(err).Interface("node", n).Uint32("depth", depth).Msg("Invalid negate field term")
+					zlog.Error().Err(err).Msg("Invalid negate field term")
 					return nil, err
 				}
 				negateFields = append(negateFields, term)
@@ -139,18 +135,50 @@ func buildLog(n *parser.NodeT, t AstNodeTypeT, depth, parentMatchId, matchId, te
 		}
 	}
 
-	switch t {
-	case NodeTypeLogSet:
-		if err = validateLogSet(n, t, len(matchFields), len(negateFields)); err != nil {
+	switch parserNode.Metadata.Type {
+	case schema.NodeTypeLogSet:
+		if err = validateLogSet(parserNode, len(matchFields), len(negateFields)); err != nil {
 			return nil, err
 		}
-	case NodeTypeLogSeq:
-		if err = validateLogSeq(n, t, len(matchFields), len(negateFields)); err != nil {
+	case schema.NodeTypeLogSeq:
+		if err = validateLogSeq(parserNode, len(matchFields), len(negateFields)); err != nil {
 			return nil, err
 		}
+	default:
+		log.Error().
+			Any("type", parserNode.Metadata.Type.String()).
+			Msg("Invalid node type")
+		return nil, ErrInvalidNodeType
 	}
 
-	return buildLogNodes(t, n, depth, parentMatchId, matchId, termIdx, matchFields, negateFields)
+	return b.doBuildLogMatcherNode(parserNode, machineAddress, termIdx, matchFields, negateFields)
+}
+
+// TODO: remove this once we migrate scope to data sources
+func getLogMatchScope(parserNode *parser.NodeT) string {
+	if parserNode.Metadata.Event.Source == schema.EventTypeK8s {
+		return schema.ScopeCluster
+	}
+	return schema.ScopeNode
+}
+
+func (b *builderT) doBuildLogMatcherNode(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32, matchFields []AstFieldT, negateFields []AstFieldT) (*AstNodeT, error) {
+	var (
+		address   = b.newAstNodeAddress(parserNode.Metadata.RuleHash, parserNode.Metadata.Type.String(), termIdx)
+		matchNode = newAstNode(parserNode, parserNode.Metadata.Type, getLogMatchScope(parserNode), machineAddress, address)
+	)
+
+	matchNode.Object = &AstLogMatcherT{
+		Event: AstEventT{
+			Origin: parserNode.Metadata.Event.Origin,
+			Source: parserNode.Metadata.Event.Source,
+		},
+		Match:  matchFields,
+		Negate: negateFields,
+		Window: parserNode.Metadata.Window,
+	}
+
+	return matchNode, nil
 }
 
 func knownSrcField(src string, field parser.FieldT) (AstFieldT, error) {
@@ -254,42 +282,4 @@ func newNegateTerm(src string, field parser.FieldT) (AstFieldT, error) {
 	}
 
 	return t, nil
-}
-
-func buildLogNodes(t AstNodeTypeT, n *parser.NodeT, depth, parentMatchId, matchId, termIdx uint32, matchFields []AstFieldT, negateFields []AstFieldT) (*AstNodePairT, error) {
-	var (
-		scope      string
-		assertNode = newAstNode(n, NodeTypeDesc, schema.ScopeCluster, depth, parentMatchId, matchId, termIdx)
-		matchNode  *AstNodeT
-	)
-
-	// TODO: revisit after data source abstraction
-	if n.Metadata.Event.Source == schema.EventTypeK8s {
-		scope = schema.ScopeCluster
-	} else {
-		scope = schema.ScopeNode
-	}
-
-	matchNode = newAstNode(n, t, scope, depth, parentMatchId, matchId, termIdx)
-
-	matchNode.Object = &AstLogMatcherT{
-		Event: AstEventT{
-			Origin: n.Metadata.Event.Origin,
-			Source: n.Metadata.Event.Source,
-		},
-		Match:  matchFields,
-		Negate: negateFields,
-		Window: n.Metadata.Window,
-	}
-
-	assertNode.Object = &AstDescriptorT{
-		Type:    NodeTypeLogSet,
-		MatchId: matchId,
-		Depth:   depth,
-	}
-
-	return &AstNodePairT{
-		Match:      matchNode,
-		Descriptor: assertNode,
-	}, nil
 }

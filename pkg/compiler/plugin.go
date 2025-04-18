@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"github.com/prequel-dev/prequel-compiler/pkg/ast"
+	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
 )
 
@@ -11,7 +12,7 @@ func NewNodePlugin() *NodePlugin {
 	return &NodePlugin{}
 }
 
-func (p *NodePlugin) Compile(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (ObjsT, error) {
+func (p *NodePlugin) Compile(runtime RuntimeI, node *ast.AstNodeT) (ObjsT, error) {
 
 	var (
 		objs = make(ObjsT, 0)
@@ -20,8 +21,8 @@ func (p *NodePlugin) Compile(runtime RuntimeI, node *ast.AstNodeT, mid uint32) (
 	)
 
 	switch node.Metadata.Type {
-	case ast.NodeTypeLogSeq, ast.NodeTypeLogSet:
-		if obj, err = ObjLogMatcher(runtime, node, mid); err != nil {
+	case schema.NodeTypeLogSeq, schema.NodeTypeLogSet:
+		if obj, err = ObjLogMatcher(runtime, node); err != nil {
 			log.Error().Err(err).Str("scope", node.Metadata.Scope).Msg("Failed to compile matchers")
 			return nil, err
 		}
