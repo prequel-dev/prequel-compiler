@@ -2,6 +2,8 @@ package ast
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -90,23 +92,21 @@ func TestAstFail(t *testing.T) {
 	var tests = map[string]struct {
 		rule string
 	}{
-		/*
-			"Fail_MissingPositiveCondition": {
-				rule: testdata.TestFailMissingPositiveCondition,
-			},
-			"Fail_BadNegativeCondition1": {
-				rule: testdata.TestFailNegativeCondition1,
-			},
-			"Fail_BadNegativeCondition2": {
-				rule: testdata.TestFailNegativeCondition2,
-			},
-			"Fail_BadNegativeCondition3": {
-				rule: testdata.TestFailNegateOptions3,
-			},
-			"Fail_BadNegativeCondition4": {
-				rule: testdata.TestFailNegateOptions4,
-			},
-		*/
+		"Fail_MissingPositiveCondition": {
+			rule: testdata.TestFailMissingPositiveCondition,
+		},
+		"Fail_BadNegativeCondition1": {
+			rule: testdata.TestFailNegativeCondition1,
+		},
+		"Fail_BadNegativeCondition2": {
+			rule: testdata.TestFailNegativeCondition2,
+		},
+		"Fail_BadNegativeCondition3": {
+			rule: testdata.TestFailNegateOptions3,
+		},
+		"Fail_BadNegativeCondition4": {
+			rule: testdata.TestFailNegateOptions4,
+		},
 	}
 
 	for name, test := range tests {
@@ -119,7 +119,6 @@ func TestAstFail(t *testing.T) {
 	}
 }
 
-/*
 func TestSuccessExamples(t *testing.T) {
 
 	logz.InitZerolog(logz.WithLevel(""))
@@ -167,4 +166,3 @@ func TestFailureExamples(t *testing.T) {
 		}
 	}
 }
-*/
