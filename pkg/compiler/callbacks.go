@@ -37,6 +37,8 @@ type CbAssertT func(ctx context.Context) error
 type RuntimeI interface {
 	NewCbMatch(params MatchParamsT) CbMatchT
 	NewCbAssert(params AssertParamsT) CbAssertT
+	LoadAssertObject(ctx context.Context, obj *ObjT) error
+	LoadMachineObject(ctx context.Context, obj *ObjT, userCb any) error
 }
 
 func GetJqMatcher(obj *ObjT) (lm.MatchFunc, CbMatchT, error) {
@@ -131,4 +133,12 @@ func (f *NoopRuntime) NewCbAssert(params AssertParamsT) CbAssertT {
 	return func(ctx context.Context) error {
 		return nil
 	}
+}
+
+func (f *NoopRuntime) LoadAssertObject(ctx context.Context, obj *ObjT) error {
+	return nil
+}
+
+func (f *NoopRuntime) LoadMachineObject(ctx context.Context, obj *ObjT, userCb any) error {
+	return nil
 }

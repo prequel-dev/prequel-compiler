@@ -243,9 +243,6 @@ func buildChildrenGroups(root *NodeT, terms map[string]ParseTermT, matches, nega
 	}
 
 	if len(negates) > 0 {
-		log.Debug().
-			Msg("Building negate children")
-
 		cNeg, err := buildChildren(root, terms, negates, true)
 		if err != nil {
 			return nil, nil, err

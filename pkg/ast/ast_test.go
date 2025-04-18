@@ -9,7 +9,6 @@ import (
 
 	"github.com/prequel-dev/prequel-compiler/pkg/testdata"
 	"github.com/prequel-dev/prequel-core/pkg/logz"
-	"github.com/rs/zerolog/log"
 )
 
 // traverses the tree and collects node types in DFS pre-order (root, then children)
@@ -23,6 +22,14 @@ func gatherNodeTypes(node *AstNodeT, out *[]string) {
 	for _, child := range node.Children {
 		gatherNodeTypes(child, out)
 	}
+}
+
+func gatherNodeAddresses(node *AstNodeT, out *[]string) {
+	if node == nil {
+		return
+	}
+
+	*out = append(*out, node.Metadata.Address.String())
 }
 
 func TestAstSuccess(t *testing.T) {
@@ -61,6 +68,9 @@ func TestAstSuccess(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+
+			var dupeAddresses = make(map[string]struct{})
+
 			ast, err := Build([]byte(test.rule))
 			if err != nil {
 				t.Fatalf("Error parsing rule: %v", err)
@@ -77,7 +87,19 @@ func TestAstSuccess(t *testing.T) {
 			var actualNodes []string
 			gatherNodeTypes(ast.Nodes[0], &actualNodes)
 
-			log.Info().Strs("actual", actualNodes).Strs("expected", test.expectedNodeTypes).Msg("Test")
+			var actualAddresses []string
+			gatherNodeAddresses(ast.Nodes[0], &actualAddresses)
+
+			for _, address := range actualAddresses {
+				if _, ok := dupeAddresses[address]; ok {
+					t.Errorf("Duplicate address found: %s", address)
+				}
+				dupeAddresses[address] = struct{}{}
+			}
+
+			if ast.Nodes[0].Metadata.ParentAddress != nil {
+				t.Errorf("Root node has parent address: %s", ast.Nodes[0].Metadata.ParentAddress.String())
+			}
 
 			if !reflect.DeepEqual(actualNodes, test.expectedNodeTypes) {
 				t.Errorf("gathered types = %v, want %v", actualNodes, test.expectedNodeTypes)
