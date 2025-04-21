@@ -4,17 +4,29 @@ import (
 	"errors"
 	"time"
 
+	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
-	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 )
 
 var (
-	ErrNotSupported = errors.New("not supported")
-	ErrTermNotFound = errors.New("term not found")
-	ErrMissingOrder = errors.New("sequence missing order")
-	ErrMissingMatch = errors.New("set missing match")
-	ErrInvalidSet   = errors.New("invalid set")
-	ErrInvalidSeq   = errors.New("invalid sequence")
+	ErrNotSupported  = errors.New("not supported")
+	ErrTermNotFound  = errors.New("term not found")
+	ErrMissingOrder  = errors.New("sequence missing order")
+	ErrMissingMatch  = errors.New("set missing match")
+	ErrInvalidWindow = errors.New("invalid window")
+)
+
+const (
+	docRules  = "rules"
+	docRule   = "rule"
+	docSeq    = "sequence"
+	docSet    = "set"
+	docOrder  = "order"
+	docWindow = "window"
+	docMatch  = "match"
+	docNegate = "negate"
+	docTerms  = "terms"
 )
 
 type TreeT struct {
@@ -29,11 +41,13 @@ type EventT struct {
 type NodeMetadataT struct {
 	RuleHash     string           `json:"rule_hash"`
 	RuleId       string           `json:"rule_id"`
+	CreId        string           `json:"cre_id"`
 	Window       time.Duration    `json:"window"`
 	Event        *EventT          `json:"event"`
 	Type         schema.NodeTypeT `json:"type"`
 	Correlations []string         `json:"correlations"`
 	NegateOpts   *NegateOptsT     `json:"negate_opts"`
+	Pos          pqerr.Pos        `json:"pos"`
 }
 
 type NodeT struct {
@@ -75,23 +89,33 @@ func newEvent(t *ParseEventT) *EventT {
 	}
 }
 
-func initNode(ruleId, ruleHash string) *NodeT {
+type termsMap map[string]*yaml.Node
+
+func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) *NodeT {
 	return &NodeT{
 		Metadata: NodeMetadataT{
 			RuleId:   ruleId,
 			RuleHash: ruleHash,
+			CreId:    creId,
+			Pos:      pqerr.Pos{Line: yn.Line, Col: yn.Column},
 		},
 		NegIdx:   -1,
 		Children: make([]any, 0),
 	}
 }
 
-func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool) error {
+func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool, yn *yaml.Node) error {
 
 	node.Metadata.Type = schema.NodeTypeSeq
 
 	if !order {
-		return ErrMissingOrder
+		return pqerr.Wrap(
+			pqerr.Pos{Line: yn.Line, Col: yn.Column},
+			node.Metadata.RuleId,
+			node.Metadata.RuleHash,
+			node.Metadata.CreId,
+			ErrMissingOrder,
+		)
 	}
 
 	if seq.Event != nil {
@@ -101,9 +125,15 @@ func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool) error {
 
 	if seq.Window != "" {
 		var err error
+
 		if node.Metadata.Window, err = time.ParseDuration(seq.Window); err != nil {
-			log.Error().Err(err).Msg("Failed to parse window")
-			return err
+			return pqerr.Wrap(
+				pqerr.Pos{Line: yn.Line, Col: yn.Column},
+				node.Metadata.RuleId,
+				node.Metadata.RuleHash,
+				node.Metadata.CreId,
+				ErrInvalidWindow,
+			)
 		}
 	}
 
@@ -114,12 +144,18 @@ func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool) error {
 	return nil
 }
 
-func setNodeProps(node *NodeT, set *ParseSetT, match bool) error {
+func setNodeProps(node *NodeT, set *ParseSetT, match bool, yn *yaml.Node) error {
 
 	node.Metadata.Type = schema.NodeTypeSet
 
 	if !match {
-		return ErrMissingMatch
+		return pqerr.Wrap(
+			pqerr.Pos{Line: yn.Line, Col: yn.Column},
+			node.Metadata.RuleId,
+			node.Metadata.RuleHash,
+			node.Metadata.CreId,
+			ErrMissingMatch,
+		)
 	}
 
 	if set.Event != nil {
@@ -129,9 +165,17 @@ func setNodeProps(node *NodeT, set *ParseSetT, match bool) error {
 
 	if set.Window != "" {
 		var err error
+
+		winNode, _ := findChild(yn, docWindow)
+
 		if node.Metadata.Window, err = time.ParseDuration(set.Window); err != nil {
-			log.Error().Err(err).Msg("Failed to parse window")
-			return err
+			return pqerr.Wrap(
+				pqerr.Pos{Line: winNode.Line, Col: winNode.Column},
+				node.Metadata.RuleId,
+				node.Metadata.RuleHash,
+				node.Metadata.CreId,
+				ErrInvalidWindow,
+			)
 		}
 	}
 
@@ -142,43 +186,72 @@ func setNodeProps(node *NodeT, set *ParseSetT, match bool) error {
 	return nil
 }
 
-func buildTree(terms map[string]ParseTermT, r ParseRuleT) (*NodeT, error) {
+func buildTree(terms map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, termsPositions termsMap) (*NodeT, error) {
 
 	var (
-		root = initNode(r.Metadata.Id, r.Metadata.Hash)
+		root *NodeT
+		n    *yaml.Node
+		ok   bool
 	)
+
+	n, ok = findChild(ruleNode, docRule)
+	if !ok {
+		return nil, errors.New("rule not found")
+	}
 
 	switch {
 	case r.Rule.Sequence != nil:
-		return buildSequenceTree(root, terms, r)
+		seqNode, _ := findChild(n, docSeq)
+		root = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, seqNode)
+		return buildSequenceTree(root, terms, r, seqNode, termsPositions)
 	case r.Rule.Set != nil:
-		return buildSetTree(root, terms, r)
+		setNode, _ := findChild(n, docSet)
+		root = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, setNode)
+		return buildSetTree(root, terms, r, setNode, termsPositions)
 	default:
-		log.Error().Interface("rule", r).Msg("Unsupported rule type")
-		return nil, ErrNotSupported
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: n.Line, Col: n.Column},
+			r.Metadata.Id,
+			r.Metadata.Hash,
+			r.Cre.Id,
+			ErrNotSupported,
+		)
 	}
 }
 
 // buildSequenceTree processes a rule with a Sequence definition.
-func buildSequenceTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (*NodeT, error) {
+func buildSequenceTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, termsPositions termsMap) (*NodeT, error) {
 
 	var (
-		seq = r.Rule.Sequence
+		seq      = r.Rule.Sequence
+		orderYn  *yaml.Node
+		negateYn *yaml.Node
+		ok       bool
 	)
 
-	if seq == nil {
-		return nil, ErrInvalidSeq
+	orderYn, ok = findChild(ruleNode, docOrder)
+	if !ok {
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: ruleNode.Line, Col: ruleNode.Column},
+			root.Metadata.RuleId,
+			root.Metadata.RuleHash,
+			root.Metadata.CreId,
+			ErrMissingOrder,
+		)
 	}
+
+	// Negate is optional
+	negateYn, _ = findChild(ruleNode, docNegate)
 
 	// Build positive children from seq.Order (non-negated)
 	// Build negative children from seq.Negate (negated)
-	pos, neg, err := buildChildrenGroups(root, terms, seq.Order, seq.Negate)
+	pos, neg, err := buildChildrenGroups(root, terms, seq.Order, seq.Negate, orderYn, negateYn, termsPositions)
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply sequence-specific node properties
-	if err := seqNodeProps(root, seq, seq.Order != nil); err != nil {
+	if err := seqNodeProps(root, seq, seq.Order != nil, orderYn); err != nil {
 		return nil, err
 	}
 
@@ -193,25 +266,36 @@ func buildSequenceTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (
 }
 
 // buildSetTree processes a rule with a Set definition.
-func buildSetTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (*NodeT, error) {
+func buildSetTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, termsPositions termsMap) (*NodeT, error) {
 
 	var (
-		set = r.Rule.Set
+		set      = r.Rule.Set
+		matchYn  *yaml.Node
+		negateYn *yaml.Node
+		ok       bool
 	)
 
-	if set == nil {
-		return nil, ErrInvalidSet
+	matchYn, ok = findChild(ruleNode, docMatch)
+	if !ok {
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: ruleNode.Line, Col: ruleNode.Column},
+			root.Metadata.RuleId,
+			root.Metadata.RuleHash,
+			root.Metadata.CreId,
+			ErrMissingMatch,
+		)
 	}
 
-	// Notice in the original code, for "Set.Negate" we also passed false
-	// to buildChildren, so we do the same here for consistency.
-	pos, neg, err := buildChildrenGroups(root, terms, set.Match, set.Negate)
+	// Negate is optional
+	negateYn, _ = findChild(ruleNode, docNegate)
+
+	pos, neg, err := buildChildrenGroups(root, terms, set.Match, set.Negate, matchYn, negateYn, termsPositions)
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply set-specific node properties
-	if err := setNodeProps(root, set, set.Match != nil); err != nil {
+	if err := setNodeProps(root, set, set.Match != nil, ruleNode); err != nil {
 		return nil, err
 	}
 
@@ -228,14 +312,14 @@ func buildSetTree(root *NodeT, terms map[string]ParseTermT, r ParseRuleT) (*Node
 // buildChildrenGroups is a helper for building positive/negative children
 // in a single pass. The boolean flags specify whether each slice
 // is being treated as negated or not.
-func buildChildrenGroups(root *NodeT, terms map[string]ParseTermT, matches, negates []ParseTermT) (pos []any, neg []any, err error) {
+func buildChildrenGroups(root *NodeT, terms map[string]ParseTermT, matches, negates []ParseTermT, orderYn, negateYn *yaml.Node, termsPositions termsMap) (pos []any, neg []any, err error) {
 
 	pos = []any{}
 	neg = []any{}
 
 	if len(matches) > 0 {
 
-		cPos, err := buildChildren(root, terms, matches, false)
+		cPos, err := buildChildren(root, terms, matches, false, orderYn, termsPositions)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -243,7 +327,7 @@ func buildChildrenGroups(root *NodeT, terms map[string]ParseTermT, matches, nega
 	}
 
 	if len(negates) > 0 {
-		cNeg, err := buildChildren(root, terms, negates, true)
+		cNeg, err := buildChildren(root, terms, negates, true, negateYn, termsPositions)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -254,30 +338,42 @@ func buildChildrenGroups(root *NodeT, terms map[string]ParseTermT, matches, nega
 	return pos, neg, nil
 }
 
-func buildChildren(parent *NodeT, tm map[string]ParseTermT, terms []ParseTermT, parentNegate bool) ([]any, error) {
+func buildChildren(parent *NodeT, tm map[string]ParseTermT, terms []ParseTermT, parentNegate bool, yn *yaml.Node, termsPositions termsMap) ([]any, error) {
 	var (
 		children = make([]any, 0)
 	)
 
 	for _, term := range terms {
 		var (
-			node any
-			t    = term
-			err  error
+			node         any
+			resolvedTerm ParseTermT
+			t            = term
+			n            = yn
+			ok           bool
+			err          error
 		)
 
 		if term.StrValue != "" {
 			// If the term is not found in the terms map, then use as str value
-			if resolvedTerm, ok := tm[term.StrValue]; ok {
+			if resolvedTerm, ok = tm[term.StrValue]; ok {
 				t = resolvedTerm
+				if n, ok = termsPositions[term.StrValue]; !ok {
+					return nil, pqerr.Wrap(
+						pqerr.Pos{Line: yn.Line, Col: yn.Column},
+						parent.Metadata.RuleId,
+						parent.Metadata.RuleHash,
+						parent.Metadata.CreId,
+						ErrTermNotFound,
+					)
+				}
+
 				if term.NegateOpts != nil {
 					t.NegateOpts = term.NegateOpts
 				}
 			}
 		}
 
-		if node, err = nodeFromTerm(parent, tm, t, parentNegate); err != nil {
-			log.Error().Err(err).Msg("Failed to build tree")
+		if node, err = nodeFromTerm(parent, tm, t, parentNegate, n, termsPositions); err != nil {
 			return nil, err
 		}
 
@@ -288,17 +384,24 @@ func buildChildren(parent *NodeT, tm map[string]ParseTermT, terms []ParseTermT, 
 	return children, nil
 }
 
-func nodeFromTerm(parent *NodeT, terms map[string]ParseTermT, term ParseTermT, parentNegate bool) (any, error) {
+func nodeFromTerm(parent *NodeT, terms map[string]ParseTermT, term ParseTermT, parentNegate bool, yn *yaml.Node, termsPositions termsMap) (any, error) {
 
 	var (
 		node *NodeT
 		opts *NegateOptsT
+		n    *yaml.Node
 		err  error
+		ok   bool
 	)
 
 	switch {
 	case term.Sequence != nil:
-		if node, err = buildSequenceNode(parent, terms, term.Sequence); err != nil {
+
+		if n, ok = findChild(yn, docSeq); !ok {
+			n = yn
+		}
+
+		if node, err = buildSequenceNode(parent, terms, term.Sequence, n, termsPositions); err != nil {
 			return nil, err
 		}
 
@@ -309,7 +412,12 @@ func nodeFromTerm(parent *NodeT, terms map[string]ParseTermT, term ParseTermT, p
 			node.Metadata.NegateOpts = opts
 		}
 	case term.Set != nil:
-		if node, err = buildSetNode(parent, terms, term.Set); err != nil {
+
+		if n, ok = findChild(yn, docSet); !ok {
+			n = yn
+		}
+
+		if node, err = buildSetNode(parent, terms, term.Set, n, termsPositions); err != nil {
 			return nil, err
 		}
 
@@ -323,7 +431,13 @@ func nodeFromTerm(parent *NodeT, terms map[string]ParseTermT, term ParseTermT, p
 		return parseValue(term, parentNegate)
 
 	default:
-		return nil, ErrTermNotFound
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: yn.Line, Col: yn.Column},
+			parent.Metadata.RuleId,
+			parent.Metadata.RuleHash,
+			parent.Metadata.CreId,
+			ErrTermNotFound,
+		)
 	}
 
 	return node, nil
@@ -353,16 +467,16 @@ func negateOpts(term ParseTermT) (*NegateOptsT, error) {
 	return opts, nil
 }
 
-func buildSequenceNode(parent *NodeT, terms map[string]ParseTermT, seq *ParseSequenceT) (*NodeT, error) {
-	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash)
+func buildSequenceNode(parent *NodeT, terms map[string]ParseTermT, seq *ParseSequenceT, yn *yaml.Node, termsPositions termsMap) (*NodeT, error) {
+	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
 
-	pos, neg, err := buildPosNegChildren(node, terms, seq.Order, seq.Negate)
+	pos, neg, err := buildPosNegChildren(node, terms, seq.Order, seq.Negate, yn, termsPositions)
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply sequence-specific node properties
-	if err := seqNodeProps(node, seq, seq.Order != nil); err != nil {
+	if err := seqNodeProps(node, seq, seq.Order != nil, yn); err != nil {
 		return nil, err
 	}
 
@@ -374,16 +488,16 @@ func buildSequenceNode(parent *NodeT, terms map[string]ParseTermT, seq *ParseSeq
 	return node, nil
 }
 
-func buildSetNode(parent *NodeT, terms map[string]ParseTermT, set *ParseSetT) (*NodeT, error) {
-	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash)
+func buildSetNode(parent *NodeT, terms map[string]ParseTermT, set *ParseSetT, yn *yaml.Node, termsPositions termsMap) (*NodeT, error) {
+	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
 
-	pos, neg, err := buildPosNegChildren(node, terms, set.Match, set.Negate)
+	pos, neg, err := buildPosNegChildren(node, terms, set.Match, set.Negate, yn, termsPositions)
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply set-specific node properties
-	if err := setNodeProps(node, set, set.Match != nil); err != nil {
+	if err := setNodeProps(node, set, set.Match != nil, yn); err != nil {
 		return nil, err
 	}
 
@@ -397,12 +511,12 @@ func buildSetNode(parent *NodeT, terms map[string]ParseTermT, set *ParseSetT) (*
 
 // buildPosNegChildren is a helper for building
 // positive and negative children across Sequence and Set
-func buildPosNegChildren(node *NodeT, terms map[string]ParseTermT, matches, negates []ParseTermT) (pos []any, neg []any, err error) {
+func buildPosNegChildren(node *NodeT, terms map[string]ParseTermT, matches, negates []ParseTermT, yn *yaml.Node, termsPositions termsMap) (pos []any, neg []any, err error) {
 
 	pos, neg = []any{}, []any{}
 
 	if len(matches) > 0 {
-		cPos, err := buildChildren(node, terms, matches, false)
+		cPos, err := buildChildren(node, terms, matches, false, yn, termsPositions)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -410,7 +524,7 @@ func buildPosNegChildren(node *NodeT, terms map[string]ParseTermT, matches, nega
 	}
 
 	if len(negates) > 0 {
-		cNeg, err := buildChildren(node, terms, negates, true)
+		cNeg, err := buildChildren(node, terms, negates, true, yn, termsPositions)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -468,7 +582,7 @@ func ParseCres(data []byte) (map[string]ParseCreT, error) {
 		err    error
 	)
 
-	if config, err = _parse(data); err != nil {
+	if config, _, err = _parse(data); err != nil {
 		return nil, err
 	}
 
@@ -482,18 +596,32 @@ func ParseCres(data []byte) (map[string]ParseCreT, error) {
 func Parse(data []byte) (*TreeT, error) {
 
 	var (
-		config RulesT
-		err    error
+		docMap         *yaml.Node
+		termsNode      *yaml.Node
+		config         RulesT
+		root           *yaml.Node
+		termsPositions termsMap
+		err            error
 	)
 
-	if config, err = _parse(data); err != nil {
+	if config, root, err = _parse(data); err != nil {
 		return nil, err
 	}
 
-	return parseRules(config.Rules, config.Terms)
+	docMap = root.Content[0]
+
+	rulesRoot, ok := findChild(docMap, docRules)
+	if !ok {
+		return nil, errors.New("rules not found")
+	}
+
+	termsNode, _ = findChild(docMap, docTerms)
+	termsPositions = collectTerms(termsNode)
+
+	return parseRules(config.Rules, config.Terms, rulesRoot, termsPositions)
 }
 
-func parseRules(rules []ParseRuleT, terms map[string]ParseTermT) (*TreeT, error) {
+func parseRules(rules []ParseRuleT, terms map[string]ParseTermT, rulesRoot *yaml.Node, termsPositions termsMap) (*TreeT, error) {
 
 	var (
 		tree = &TreeT{
@@ -501,13 +629,19 @@ func parseRules(rules []ParseRuleT, terms map[string]ParseTermT) (*TreeT, error)
 		}
 	)
 
-	for _, rule := range rules {
+	for i, rule := range rules {
 		var (
-			node *NodeT
-			err  error
+			node     *NodeT
+			ruleNode *yaml.Node
+			ok       bool
+			err      error
 		)
 
-		if node, err = buildTree(terms, rule); err != nil {
+		if ruleNode, ok = seqItem(rulesRoot, i); !ok {
+			return nil, errors.New("rule not found")
+		}
+
+		if node, err = buildTree(terms, rule, ruleNode, termsPositions); err != nil {
 			return nil, err
 		}
 
@@ -517,6 +651,39 @@ func parseRules(rules []ParseRuleT, terms map[string]ParseTermT) (*TreeT, error)
 	return tree, nil
 }
 
-func ParseRules(config *RulesT) (*TreeT, error) {
-	return parseRules(config.Rules, config.Terms)
+func ParseRules(config *RulesT, rulesRoot *yaml.Node, termsPositions termsMap) (*TreeT, error) {
+	return parseRules(config.Rules, config.Terms, rulesRoot, termsPositions)
+}
+
+func findChild(n *yaml.Node, key string) (*yaml.Node, bool) {
+	if n == nil || n.Kind != yaml.MappingNode {
+		return nil, false
+	}
+	for i := 0; i < len(n.Content); i += 2 {
+		k, v := n.Content[i], n.Content[i+1]
+		if k.Value == key {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func seqItem(seq *yaml.Node, idx int) (*yaml.Node, bool) {
+	if seq == nil || seq.Kind != yaml.SequenceNode || idx < 0 ||
+		idx >= len(seq.Content) {
+		return nil, false
+	}
+	return seq.Content[idx], true
+}
+
+func collectTerms(doc *yaml.Node) termsMap {
+	terms := make(termsMap)
+	if doc == nil || doc.Kind != yaml.MappingNode {
+		return terms
+	}
+	for i := 0; i < len(doc.Content); i += 2 {
+		key := doc.Content[i] // scalar
+		terms[key.Value] = doc.Content[i+1]
+	}
+	return terms
 }

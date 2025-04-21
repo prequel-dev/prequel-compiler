@@ -3,7 +3,7 @@ package testdata
 var TestSuccessSimpleRule1 = `
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestSuccessSimpleRule1
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -22,7 +22,7 @@ rules:
 var TestSuccessComplexRule2 = `
 rules:
   - cre:
-      id: cre-2024-007
+      id: TestSuccessComplexRule2
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -58,6 +58,8 @@ terms:
       match:
         - field: "reason"
           value: "Killing"
+        - field: "reason"
+          value: "NodeShutdown"
       negate:
         - SIGTERM
   term3:
@@ -89,7 +91,7 @@ terms:
 var TestSuccessComplexRule3 = `
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestSuccessComplexRule3
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -126,7 +128,7 @@ terms:
 var TestSuccessComplexRule4 = `
 rules:
   - cre:
-      id: nested-example
+      id: TestSuccessComplexRule4
     metadata:
       hash: 2KdXQZDAfRbYcH9FBDteBS
     rule:
@@ -215,7 +217,7 @@ terms:
 var TestSuccessComplexRule5 = `
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestSuccessComplexRule5
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -255,7 +257,7 @@ terms:
 var TestSuccessNegateOptions1 = `
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestSuccessNegateOptions1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -284,7 +286,7 @@ rules:
 var TestSuccessNegateOptions2 = `
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestSuccessNegateOptions2
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -334,10 +336,10 @@ terms:
 `
 
 /* Failure cases */
-var TestFailTypo = `
+var TestFailTypo = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailTypo
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -351,10 +353,10 @@ rules:
           - regexs: "io.vertx.core.VertxException: Thread blocked"        # typo
 `
 
-var TestFailMissingOrder = `
+var TestFailMissingOrder = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailMissingOrder
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -368,10 +370,10 @@ rules:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
 
-var TestFailMissingMatch = `
+var TestFailMissingMatch = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailMissingMatch
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -385,10 +387,10 @@ rules:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
 
-var TestFailInvalidWindow = `
+var TestFailInvalidWindow = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailInvalidWindow
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
@@ -402,10 +404,27 @@ rules:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
 
-var TestFailMissingPositiveCondition = `
+var TestFailUnsupportedRule = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailInvalidWindow
+      severity: 1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      generation: 1
+    rule:
+      superduperset:                                                       # unsupported rule type
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailMissingPositiveCondition = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailMissingPositiveCondition
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -464,10 +483,10 @@ terms:
                 value: "Killing"
 `
 
-var TestFailNegativeCondition1 = `
+var TestFailNegativeCondition1 = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailNegativeCondition1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -530,10 +549,10 @@ terms:
                 value: "Killing"
 `
 
-var TestFailNegativeCondition2 = `
+var TestFailNegativeCondition2 = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailNegativeCondition2
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -569,10 +588,10 @@ terms:
         value: "Killing"
 `
 
-var TestFailNegateOptions3 = `
+var TestFailNegateOptions3 = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailNegateOptions3
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -620,10 +639,10 @@ terms:
           abs: true
 `
 
-var TestFailNegateOptions4 = `
+var TestFailNegateOptions4 = ` # Line 1 starts here
 rules:
   - cre:
-      id: cre-2024-006
+      id: TestFailNegateOptions4
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
@@ -670,4 +689,176 @@ terms:
           slide: 1s
           anchor: 0
           abs: true
+`
+
+var TestFailTermsSyntaxError1 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSyntaxError
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 30s
+        correlations:
+          - hostname
+        order:
+          - term1
+          - term2
+          - term3
+
+terms:        
+  term1:
+    sequence:
+      window: 10s
+      event:
+        source: rabbitmq
+        origin: true
+      order:
+        - value: Discarding message
+          count: 10
+        - Mnesia overloaded
+      negate:
+        - SIGTERM
+  term2:
+    set:
+      event:
+        source: k8s
+      moooch:
+      - field: "reason"
+        value: "Killing"
+  term3:
+    set:
+      event:
+        source: k8s
+      negate:
+        - field: "reason"
+          value: "Killing"
+          window: 10s
+          slide: 1s
+          anchor: 0
+          abs: true
+`
+
+var TestFailTermsSyntaxError2 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSyntaxError
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 30s
+        correlations:
+          - hostname
+        order:
+          - term1
+          - term2
+          - term3
+
+terms:        
+  term1:
+    sequence:
+      window: 10s
+      event:
+        source: rabbitmq
+        origin: true
+      order:
+        - value: Discarding message
+          count: 10
+        - Mnesia overloaded
+      negate:
+        - SIGTERM
+  term2:
+    set:
+      event:
+        source: k8s
+      window: 10d
+      match:
+      - field: "reason"
+        value: "Killing"
+  term3:
+    set:
+      event:
+        source: k8s
+      negate:
+        - field: "reason"
+          value: "Killing"
+          window: 10s
+          slide: 1s
+          anchor: 0
+          abs: true
+`
+
+var TestFailTermsSemanticError1 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 30s
+        correlations:
+          - hostname
+        order:
+          - term1
+          - term2
+          - term3
+
+terms:        
+  term1:
+    sequence:
+      window: 10s
+      event:
+        source: rabbitmq
+        origin: true
+      order:
+        - value: Discarding message
+          count: 10
+        - Mnesia overloaded
+      negate:
+        - SIGTERM
+  term2:
+    sequence:
+      event:
+        source: k8s
+      window: 1s
+      order:
+      - field: "reason"
+        value: "Killing"
+  term3:
+    set:
+      event:
+        source: k8s
+      match:
+        - field: "reason"
+          value: "Killing"
+          window: 10s
+          slide: 1s
+          anchor: 0
+          abs: true
+`
+
+var TestFailTermsSemanticError2 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 0s
+        correlations:
+          - hostname
+        order:
+          - term1
 `

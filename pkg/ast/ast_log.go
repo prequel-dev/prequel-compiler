@@ -6,18 +6,17 @@ import (
 	"time"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/parser"
+	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/prequel-dev/prequel-logmatch/pkg/match"
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	ErrUnknownField                  = errors.New("unknown source field")
-	ErrUnknownSrc                    = errors.New("unknown source")
-	ErrSeqPosConditions              = errors.New("sequences require two or more positive conditions")
-	ErrMissingScalar                 = errors.New("missing string, jq, or regex condition")
-	ErrMissingPositiveOrderCondition = errors.New("missing one or more positive condition under an order statement")
-	ErrMissingPositiveMatchCondition = errors.New("missing one or more positive condition under a match statement")
+	ErrUnknownField     = errors.New("unknown source field")
+	ErrUnknownSrc       = errors.New("unknown source")
+	ErrSeqPosConditions = errors.New("sequences require two or more positive conditions")
+	ErrMissingScalar    = errors.New("missing string, jq, or regex condition")
 )
 
 type AstLogMatcherT struct {
@@ -27,13 +26,19 @@ type AstLogMatcherT struct {
 	Window time.Duration
 }
 
-func validateLogSeq(n *parser.NodeT, matches, negates int) error {
+func validateLogSeq(n *parser.NodeT, matches int) error {
 
 	if matches <= 1 {
 		log.Error().
 			Any("node", n).
-			Msg("Window requires two or more positive conditions")
-		return ErrSeqPosConditions
+			Msg("Sequences require two or more positive conditions")
+		return pqerr.Wrap(
+			pqerr.Pos{Line: n.Metadata.Pos.Line, Col: n.Metadata.Pos.Col},
+			n.Metadata.RuleId,
+			n.Metadata.RuleHash,
+			n.Metadata.CreId,
+			ErrSeqPosConditions,
+		)
 	}
 
 	if n.Metadata.Window == 0 {
@@ -43,20 +48,20 @@ func validateLogSeq(n *parser.NodeT, matches, negates int) error {
 		return ErrInvalidWindow
 	}
 
-	if matches == 0 {
-		log.Error().
-			Int("matches", matches).
-			Int("negate", negates).
-			Interface("node", n).
-			Msg("Sequences require at least one order term")
-		return ErrMissingPositiveOrderCondition
-	}
-
 	return nil
 }
 
-func validateLogSet(n *parser.NodeT, matches, negates int) error {
+func validateLogSet(n *parser.NodeT, matches int) error {
 
+	// Only one positive condition with a window is not allowed
+	if matches == 1 && n.Metadata.Window != 0 {
+		log.Error().
+			Any("node", n).
+			Msg("Windows require two or more positive conditions")
+		return ErrInvalidWindow
+	}
+
+	// More than one positive condition with no window is not allowed
 	if matches > 1 && n.Metadata.Window == 0 {
 		log.Error().
 			Any("node", n).
@@ -64,12 +69,6 @@ func validateLogSet(n *parser.NodeT, matches, negates int) error {
 		return ErrInvalidWindow
 	}
 
-	if negates > 0 && matches == 0 {
-		log.Error().
-			Any("node", n).
-			Msg("Sets require one or more positive conditions under a match statement")
-		return ErrMissingPositiveMatchCondition
-	}
 	return nil
 }
 
@@ -137,11 +136,11 @@ func (b *builderT) buildLogMatcherNode(parserNode *parser.NodeT, machineAddress 
 
 	switch parserNode.Metadata.Type {
 	case schema.NodeTypeLogSet:
-		if err = validateLogSet(parserNode, len(matchFields), len(negateFields)); err != nil {
+		if err = validateLogSet(parserNode, len(matchFields)); err != nil {
 			return nil, err
 		}
 	case schema.NodeTypeLogSeq:
-		if err = validateLogSeq(parserNode, len(matchFields), len(negateFields)); err != nil {
+		if err = validateLogSeq(parserNode, len(matchFields)); err != nil {
 			return nil, err
 		}
 	default:

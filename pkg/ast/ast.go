@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/parser"
+	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/prequel-dev/prequel-logmatch/pkg/match"
 	"github.com/rs/zerolog/log"
@@ -23,7 +24,7 @@ const (
 var (
 	ErrInvalidEventType        = errors.New("invalid event type")
 	ErrInvalidNodeType         = errors.New("invalid node type")
-	ErrRootNodeWithoutEventSrc = errors.New("root node has no event src")
+	ErrRootNodeWithoutEventSrc = errors.New("root node has no event source")
 	ErrInvalidWindow           = errors.New("invalid window")
 	ErrMissingOrigin           = errors.New("missing origin event")
 	ErrInvalidAnchor           = errors.New("invalid anchor")
@@ -109,6 +110,7 @@ func Build(data []byte) (*AstT, error) {
 	)
 
 	if parseTree, err = parser.Parse(data); err != nil {
+		log.Error().Any("err", err).Msg("Parser failed")
 		return nil, err
 	}
 
@@ -230,7 +232,13 @@ func (b *builderT) buildMatcherChildren(parserNode *parser.NodeT, machineAddress
 	)
 
 	if parserNode.Metadata.Event == nil {
-		return nil, ErrRootNodeWithoutEventSrc
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: parserNode.Metadata.Pos.Line, Col: parserNode.Metadata.Pos.Col},
+			parserNode.Metadata.RuleId,
+			parserNode.Metadata.RuleHash,
+			parserNode.Metadata.CreId,
+			ErrRootNodeWithoutEventSrc,
+		)
 	}
 
 	if parserNode.Metadata.Event.Source == "" {

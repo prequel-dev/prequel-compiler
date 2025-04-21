@@ -135,8 +135,29 @@ type RulesT struct {
 	Terms map[string]ParseTermT `yaml:"terms"`
 }
 
-func _parse(data []byte) (RulesT, error) {
-	var rules RulesT
-	err := yaml.Unmarshal(data, &rules)
-	return rules, err
+func RootNode(data []byte) (*yaml.Node, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, err
+	}
+	return &root, nil
+}
+
+func _parse(data []byte) (RulesT, *yaml.Node, error) {
+
+	var (
+		root  yaml.Node
+		rules RulesT
+		err   error
+	)
+
+	if err = yaml.Unmarshal(data, &root); err != nil {
+		return RulesT{}, nil, err
+	}
+
+	if err := root.Decode(&rules); err != nil {
+		return RulesT{}, nil, err
+	}
+
+	return rules, &root, nil
 }

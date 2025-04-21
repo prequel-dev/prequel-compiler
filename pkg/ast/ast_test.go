@@ -1,14 +1,17 @@
 package ast
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/prequel-dev/prequel-compiler/pkg/parser"
+	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/testdata"
-	"github.com/prequel-dev/prequel-core/pkg/logz"
+	"github.com/rs/zerolog/log"
 )
 
 // traverses the tree and collects node types in DFS pre-order (root, then children)
@@ -33,8 +36,6 @@ func gatherNodeAddresses(node *AstNodeT, out *[]string) {
 }
 
 func TestAstSuccess(t *testing.T) {
-
-	logz.InitZerolog(logz.WithPretty(), logz.WithLevel("TRACE"))
 
 	var tests = map[string]struct {
 		rule              string
@@ -108,26 +109,72 @@ func TestAstSuccess(t *testing.T) {
 	}
 }
 
+/*
+Errors to test:
+
+ErrInvalidEventType        = errors.New("invalid event type")
+ErrInvalidNodeType         = errors.New("invalid node type")
+ErrRootNodeWithoutEventSrc = errors.New("root node has no event src")
+ErrInvalidWindow           = errors.New("invalid window")
+ErrMissingOrigin           = errors.New("missing origin event")
+ErrInvalidAnchor           = errors.New("invalid anchor")
+ErrInvalidMatchId          = errors.New("invalid match id")
+ErrNoTermIdx               = errors.New("no term idx")
+ErrInvalidDescriptor       = errors.New("invalid descriptor")
+ErrUnknownField            = errors.New("unknown source field")
+ErrUnknownSrc              = errors.New("unknown source")
+ErrSeqPosConditions        = errors.New("sequences require two or more positive conditions")  x
+ErrMissingScalar           = errors.New("missing string, jq, or regex condition")
+*/
 func TestAstFail(t *testing.T) {
-	logz.InitZerolog(logz.WithLevel(""))
 
 	var tests = map[string]struct {
 		rule string
+		err  error
+		line int
+		col  int
 	}{
 		"Fail_MissingPositiveCondition": {
 			rule: testdata.TestFailMissingPositiveCondition,
+			err:  parser.ErrMissingMatch,
+			line: 32,
+			col:  7,
 		},
 		"Fail_BadNegativeCondition1": {
 			rule: testdata.TestFailNegativeCondition1,
+			err:  parser.ErrMissingMatch,
+			line: 34,
+			col:  7,
 		},
 		"Fail_BadNegativeCondition2": {
 			rule: testdata.TestFailNegativeCondition2,
+			err:  parser.ErrMissingMatch,
+			line: 33,
+			col:  7,
 		},
 		"Fail_BadNegativeCondition3": {
 			rule: testdata.TestFailNegateOptions3,
+			err:  parser.ErrMissingMatch,
+			line: 41,
+			col:  7,
 		},
 		"Fail_BadNegativeCondition4": {
 			rule: testdata.TestFailNegateOptions4,
+			err:  parser.ErrMissingMatch,
+			line: 42,
+			col:  7,
+		},
+		"Fail_TermsSemanticError1": {
+			rule: testdata.TestFailTermsSemanticError1,
+			err:  ErrSeqPosConditions,
+			line: 34,
+			col:  7,
+		},
+		"Fail_TermsSemanticError2": {
+			rule: testdata.TestFailTermsSemanticError2,
+			err:  ErrRootNodeWithoutEventSrc,
+			line: 11,
+			col:  9,
 		},
 	}
 
@@ -135,15 +182,29 @@ func TestAstFail(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, err := Build([]byte(test.rule))
 			if err == nil {
-				t.Fatalf("Expected error parsing rule")
+				t.Fatalf("Expected error building ast for rule")
+			}
+
+			if !errors.Is(err, test.err) {
+				log.Info().Type("err_type", err).Msg("error")
+				t.Errorf("Expected error %v, got %v", test.err, err)
+			}
+
+			if pos, ok := pqerr.PosOf(err); ok {
+				if pos.Line != test.line {
+					t.Errorf("Expected error position line=%d, got line=%d", test.line, pos.Line)
+				}
+				if pos.Col != test.col {
+					t.Errorf("Expected error position col=%d, got col=%d", test.col, pos.Col)
+				}
+			} else {
+				t.Errorf("Expected wrapped pqerr error %v, got %v", test.err, err)
 			}
 		})
 	}
 }
 
 func TestSuccessExamples(t *testing.T) {
-
-	logz.InitZerolog(logz.WithLevel(""))
 
 	rules, err := filepath.Glob(filepath.Join("../testdata", "success_examples", "*.yaml"))
 	if err != nil {
@@ -166,8 +227,6 @@ func TestSuccessExamples(t *testing.T) {
 }
 
 func TestFailureExamples(t *testing.T) {
-
-	logz.InitZerolog(logz.WithLevel(""))
 
 	rules, err := filepath.Glob(filepath.Join("../testdata", "failure_examples", "*.yaml"))
 	if err != nil {

@@ -3,7 +3,6 @@ module github.com/prequel-dev/prequel-compiler
 go 1.24.1
 
 require (
-	github.com/prequel-dev/prequel-core v0.0.37
 	github.com/prequel-dev/prequel-logmatch v0.0.10
 	github.com/rs/zerolog v1.34.0
 	github.com/tinylib/msgp v1.2.5
