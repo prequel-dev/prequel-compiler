@@ -6,6 +6,20 @@ import (
 
 // Note that we prefer lower camel case like Kubernetes
 
+const (
+	docRules   = "rules"
+	docRule    = "rule"
+	docSeq     = "sequence"
+	docSet     = "set"
+	docOrder   = "order"
+	docWindow  = "window"
+	docMatch   = "match"
+	docNegate  = "negate"
+	docTerms   = "terms"
+	docSection = "section"
+	docVersion = "version"
+)
+
 type ParseRuleT struct {
 	Metadata ParseRuleMetadataT `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 	Cre      ParseCreT          `yaml:"cre,omitempty" json:"cre,omitempty"`
@@ -131,8 +145,10 @@ type ParseEventT struct {
 }
 
 type RulesT struct {
-	Rules []ParseRuleT          `yaml:"rules"`
-	Terms map[string]ParseTermT `yaml:"terms"`
+	Rules  []ParseRuleT          `yaml:"rules"`
+	Root   *yaml.Node            `yaml:"-"`
+	TermsT map[string]ParseTermT `yaml:"terms"`
+	TermsY map[string]*yaml.Node `yaml:"-"`
 }
 
 func RootNode(data []byte) (*yaml.Node, error) {

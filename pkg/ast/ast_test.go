@@ -112,18 +112,11 @@ func TestAstSuccess(t *testing.T) {
 /*
 Errors to test:
 
-ErrInvalidEventType        = errors.New("invalid event type")
-ErrInvalidNodeType         = errors.New("invalid node type")
-ErrRootNodeWithoutEventSrc = errors.New("root node has no event src")
-ErrInvalidWindow           = errors.New("invalid window")
-ErrMissingOrigin           = errors.New("missing origin event")
-ErrInvalidAnchor           = errors.New("invalid anchor")
-ErrInvalidMatchId          = errors.New("invalid match id")
-ErrNoTermIdx               = errors.New("no term idx")
-ErrInvalidDescriptor       = errors.New("invalid descriptor")
-ErrUnknownField            = errors.New("unknown source field")
-ErrUnknownSrc              = errors.New("unknown source")
-ErrSeqPosConditions        = errors.New("sequences require two or more positive conditions")  x
+ErrInvalidEventType        = errors.New("invalid event type")                                x
+ErrRootNodeWithoutEventSrc = errors.New("root node has no event src")                        x
+ErrMissingOrigin           = errors.New("missing origin event")                              x
+ErrInvalidAnchor           = errors.New("invalid anchor")                                    x
+ErrSeqPosConditions        = errors.New("sequences require two or more positive conditions") x
 ErrMissingScalar           = errors.New("missing string, jq, or regex condition")
 */
 func TestAstFail(t *testing.T) {
@@ -167,12 +160,30 @@ func TestAstFail(t *testing.T) {
 		"Fail_TermsSemanticError1": {
 			rule: testdata.TestFailTermsSemanticError1,
 			err:  ErrSeqPosConditions,
-			line: 34,
-			col:  7,
+			line: 36,
+			col:  15,
 		},
 		"Fail_TermsSemanticError2": {
 			rule: testdata.TestFailTermsSemanticError2,
 			err:  ErrRootNodeWithoutEventSrc,
+			line: 11,
+			col:  9,
+		},
+		"Fail_TermsSemanticError3": {
+			rule: testdata.TestFailTermsSemanticError3,
+			err:  ErrMissingOrigin,
+			line: 11,
+			col:  9,
+		},
+		"Fail_TermsSemanticError4": {
+			rule: testdata.TestFailTermsSemanticError4,
+			err:  ErrInvalidEventType,
+			line: 16,
+			col:  11,
+		},
+		"Fail_TermsSemanticError5": {
+			rule: testdata.TestFailTermsSemanticError5,
+			err:  ErrInvalidAnchor,
 			line: 11,
 			col:  9,
 		},

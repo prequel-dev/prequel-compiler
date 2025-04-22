@@ -1,16 +1,11 @@
 package ast
 
 import (
-	"errors"
 	"time"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/parser"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	ErrInvalidDescriptor = errors.New("invalid descriptor")
 )
 
 type AstSeqMatcherT struct {

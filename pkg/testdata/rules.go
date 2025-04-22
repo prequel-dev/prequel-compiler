@@ -862,3 +862,88 @@ rules:
         order:
           - term1
 `
+
+var TestFailTermsSemanticError3 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        event:
+          source: kafka
+        correlations:
+          - hostname
+        match:
+          - set:
+              event:
+                source: kafka
+              match:
+                - field: "reason"
+                  value: "Killing"
+`
+
+var TestFailTermsSemanticError4 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        event:
+          source: kafka
+        correlations:
+          - hostname
+        match:
+          - set:
+              event:
+                source: 
+              match:
+                - field: "reason"
+                  value: "Killing"
+`
+
+var TestFailTermsSemanticError5 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError5
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        event:
+          source: kafka
+        correlations:
+          - hostname
+        match:
+          - value: "Killing"
+        negate:
+          - value: "SIGTERM"
+            window: 10s
+            anchor: 10
+`
+
+var TestFailTermsSemanticError6 = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailTermsSemanticError6
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        event:
+          source: k8s
+        match:
+          - field: "not-a-real-k8s-field"
+            value: "Killing"
+`
