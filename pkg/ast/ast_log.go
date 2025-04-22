@@ -11,8 +11,6 @@ import (
 )
 
 var (
-	ErrUnknownField     = errors.New("unknown source field")
-	ErrUnknownSrc       = errors.New("unknown source")
 	ErrSeqPosConditions = errors.New("sequences require two or more positive conditions")
 	ErrMissingScalar    = errors.New("missing string, jq, or regex condition")
 )
