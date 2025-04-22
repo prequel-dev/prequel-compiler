@@ -109,16 +109,6 @@ func TestAstSuccess(t *testing.T) {
 	}
 }
 
-/*
-Errors to test:
-
-ErrInvalidEventType        = errors.New("invalid event type")                                x
-ErrRootNodeWithoutEventSrc = errors.New("root node has no event src")                        x
-ErrMissingOrigin           = errors.New("missing origin event")                              x
-ErrInvalidAnchor           = errors.New("invalid anchor")                                    x
-ErrSeqPosConditions        = errors.New("sequences require two or more positive conditions") x
-ErrMissingScalar           = errors.New("missing string, jq, or regex condition")
-*/
 func TestAstFail(t *testing.T) {
 
 	var tests = map[string]struct {

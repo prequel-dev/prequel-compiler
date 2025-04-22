@@ -110,15 +110,6 @@ func TestSuccessExamples(t *testing.T) {
 	}
 }
 
-/*
-Errors to test:
-
-ErrNotSupported  = errors.New("not supported")
-ErrTermNotFound  = errors.New("term not found")
-ErrMissingOrder  = errors.New("sequence missing order")
-ErrMissingMatch  = errors.New("set missing match")
-ErrInvalidWindow = errors.New("invalid window")
-*/
 func TestParseFail(t *testing.T) {
 
 	var tests = map[string]struct {
