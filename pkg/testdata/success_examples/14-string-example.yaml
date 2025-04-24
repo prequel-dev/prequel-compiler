@@ -1,9 +1,12 @@
 rules:
   - cre:
       id: string-example-2
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         event:
-          source: kafka
+          source: cre.log.kafka
         match:
           - "[emerg] 1655#1655: still could not bind()"

@@ -1,10 +1,13 @@
 rules:
   - cre:
       id: negate-window
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         event:
-          source: kafka
+          source: cre.log.kafka
         match:
           - regex: "foo(.+)bar"
         negate:

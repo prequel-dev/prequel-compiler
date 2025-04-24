@@ -1,9 +1,12 @@
 rules:
   - cre:
       id: jq-example-2
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         event:
-          source: kafka
+          source: cre.log.kafka
         match:
           - jq: "select(.event == \"worker_process_crash\" and .level == \"error\")"

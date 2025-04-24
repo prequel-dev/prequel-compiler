@@ -1,10 +1,13 @@
 rules:
   - cre:
       id: seq-negate
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       sequence:
         event:
-          source: kafka
+          source: cre.log.kafka
         window: 10s
         order:
           - regex: "foo(.+)bar"

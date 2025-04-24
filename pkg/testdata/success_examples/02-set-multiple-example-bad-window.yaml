@@ -1,11 +1,14 @@
 rules:
   - cre:
       id: set-example-2
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         window: 1s
         event:
-          source: kafka
+          source: cre.log.kafka
         match:
           - value: "test"
           - regex: "foo(.+)bar"

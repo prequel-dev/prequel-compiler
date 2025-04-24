@@ -1,6 +1,9 @@
 rules:
   - cre:
       id: set-example
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         event:

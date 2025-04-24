@@ -120,31 +120,31 @@ func TestParseFail(t *testing.T) {
 	}{
 		"Fail_Typo": {
 			rule: testdata.TestFailTypo,
-			line: 15,
+			line: 16,
 			col:  11,
 			err:  ErrTermNotFound,
 		},
 		"Fail_MissingOrder": {
 			rule: testdata.TestFailMissingOrder,
-			line: 11,
+			line: 12,
 			col:  9,
 			err:  ErrMissingOrder,
 		},
 		"Fail_MissingMatch": {
 			rule: testdata.TestFailMissingMatch,
-			line: 11,
+			line: 12,
 			col:  9,
 			err:  ErrMissingMatch,
 		},
 		"Fail_InvalidWindow": {
 			rule: testdata.TestFailInvalidWindow,
-			line: 11,
+			line: 12,
 			col:  17,
 			err:  ErrInvalidWindow,
 		},
 		"Fail_UnsupportedRule": {
 			rule: testdata.TestFailUnsupportedRule,
-			line: 10,
+			line: 11,
 			col:  7,
 			err:  ErrNotSupported,
 		},
@@ -159,6 +159,24 @@ func TestParseFail(t *testing.T) {
 			line: 36,
 			col:  15,
 			err:  ErrInvalidWindow,
+		},
+		"Fail_MissingCreId": {
+			rule: testdata.TestFailMissingCreRule,
+			line: 10,
+			col:  7,
+			err:  ErrMissingCreId,
+		},
+		"Fail_MissingRuleId": {
+			rule: testdata.TestFailMissingRuleIdRule,
+			line: 10,
+			col:  7,
+			err:  ErrMissingRuleId,
+		},
+		"Fail_MissingRuleHash": {
+			rule: testdata.TestFailMissingRuleHashRule,
+			line: 10,
+			col:  7,
+			err:  ErrMissingRuleHash,
 		},
 	}
 

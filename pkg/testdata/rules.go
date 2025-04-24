@@ -130,6 +130,7 @@ rules:
   - cre:
       id: TestSuccessComplexRule4
     metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: 2KdXQZDAfRbYcH9FBDteBS
     rule:
       sequence:
@@ -343,6 +344,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
       generation: 1
     rule:
       sequence:
@@ -360,6 +362,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
       generation: 1
     rule:
       sequence:
@@ -377,6 +380,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
       generation: 1
     rule:
       set:
@@ -394,6 +398,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
       generation: 1
     rule:
       set:
@@ -411,6 +416,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
       generation: 1
     rule:
       superduperset:                                                       # unsupported rule type
@@ -428,6 +434,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
     rule:
       sequence:
         window: 30s
@@ -946,4 +953,55 @@ rules:
         match:
           - field: "not-a-real-k8s-field"
             value: "Killing"
+`
+
+var TestFailMissingCreRule = ` # Line 1 starts here
+rules:
+  - cre:
+      severity: 1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailMissingRuleIdRule = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailMissingRuleId
+      severity: 1
+    metadata:
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailMissingRuleHashRule = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailMissingRuleHash
+      severity: 1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
 `

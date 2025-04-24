@@ -13,14 +13,17 @@ import (
 )
 
 var (
-	ErrRuleNotFound  = errors.New("rule not found")
-	ErrNotSupported  = errors.New("not supported")
-	ErrTermNotFound  = errors.New("term not found")
-	ErrMissingOrder  = errors.New("'sequence' missing 'order'")
-	ErrMissingMatch  = errors.New("'set' missing 'match'")
-	ErrInvalidWindow = errors.New("invalid 'window'")
-	ErrTermsMapping  = errors.New("'terms' must be a mapping")
-	ErrDuplicateTerm = errors.New("duplicate term name")
+	ErrRuleNotFound    = errors.New("rule not found")
+	ErrNotSupported    = errors.New("not supported")
+	ErrTermNotFound    = errors.New("term not found")
+	ErrMissingOrder    = errors.New("'sequence' missing 'order'")
+	ErrMissingMatch    = errors.New("'set' missing 'match'")
+	ErrInvalidWindow   = errors.New("invalid 'window'")
+	ErrTermsMapping    = errors.New("'terms' must be a mapping")
+	ErrDuplicateTerm   = errors.New("duplicate term name")
+	ErrMissingRuleId   = errors.New("missing rule id")
+	ErrMissingRuleHash = errors.New("missing rule hash")
+	ErrMissingCreId    = errors.New("missing cre id")
 )
 
 type TreeT struct {
@@ -83,7 +86,20 @@ func newEvent(t *ParseEventT) *EventT {
 	}
 }
 
-func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) *NodeT {
+func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, error) {
+
+	if ruleId == "" {
+		return nil, ErrMissingRuleId
+	}
+
+	if ruleHash == "" {
+		return nil, ErrMissingRuleHash
+	}
+
+	if creId == "" {
+		return nil, ErrMissingCreId
+	}
+
 	return &NodeT{
 		Metadata: NodeMetadataT{
 			RuleId:   ruleId,
@@ -93,7 +109,7 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) *NodeT {
 		},
 		NegIdx:   -1,
 		Children: make([]any, 0),
-	}
+	}, nil
 }
 
 func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool, yn *yaml.Node) error {
@@ -166,6 +182,7 @@ func buildTree(termsT map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, 
 		root *NodeT
 		n    *yaml.Node
 		ok   bool
+		err  error
 	)
 
 	n, ok = findChild(ruleNode, docRule)
@@ -176,11 +193,29 @@ func buildTree(termsT map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, 
 	switch {
 	case r.Rule.Sequence != nil:
 		seqNode, _ := findChild(n, docSeq)
-		root = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, seqNode)
+		root, err = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, seqNode)
+		if err != nil {
+			return nil, pqerr.Wrap(
+				pqerr.Pos{Line: n.Line, Col: n.Column},
+				r.Metadata.Id,
+				r.Metadata.Hash,
+				r.Cre.Id,
+				err,
+			)
+		}
 		return buildSequenceTree(root, termsT, r, seqNode, termsY)
 	case r.Rule.Set != nil:
 		setNode, _ := findChild(n, docSet)
-		root = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, setNode)
+		root, err = initNode(r.Metadata.Id, r.Metadata.Hash, r.Cre.Id, setNode)
+		if err != nil {
+			return nil, pqerr.Wrap(
+				pqerr.Pos{Line: n.Line, Col: n.Column},
+				r.Metadata.Id,
+				r.Metadata.Hash,
+				r.Cre.Id,
+				err,
+			)
+		}
 		return buildSetTree(root, termsT, r, setNode, termsY)
 	default:
 		return nil, pqerr.Wrap(
@@ -419,7 +454,10 @@ func negateOpts(term ParseTermT) (*NegateOptsT, error) {
 }
 
 func buildSequenceNode(parent *NodeT, termsT map[string]ParseTermT, seq *ParseSequenceT, yn *yaml.Node, termsY map[string]*yaml.Node) (*NodeT, error) {
-	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
+	node, err := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
+	if err != nil {
+		return nil, parent.WrapError(err)
+	}
 
 	pos, neg, err := buildPosNegChildren(node, termsT, seq.Order, seq.Negate, yn, termsY)
 	if err != nil {
@@ -440,7 +478,10 @@ func buildSequenceNode(parent *NodeT, termsT map[string]ParseTermT, seq *ParseSe
 }
 
 func buildSetNode(parent *NodeT, termsT map[string]ParseTermT, set *ParseSetT, yn *yaml.Node, termsY map[string]*yaml.Node) (*NodeT, error) {
-	node := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
+	node, err := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
+	if err != nil {
+		return nil, parent.WrapError(err)
+	}
 
 	pos, neg, err := buildPosNegChildren(node, termsT, set.Match, set.Negate, yn, termsY)
 	if err != nil {

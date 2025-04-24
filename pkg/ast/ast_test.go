@@ -120,7 +120,7 @@ func TestAstFail(t *testing.T) {
 		"Fail_MissingPositiveCondition": {
 			rule: testdata.TestFailMissingPositiveCondition,
 			err:  parser.ErrMissingMatch,
-			line: 32,
+			line: 33,
 			col:  7,
 		},
 		"Fail_BadNegativeCondition1": {

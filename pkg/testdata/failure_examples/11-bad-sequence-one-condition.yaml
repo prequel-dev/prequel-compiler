@@ -1,9 +1,12 @@
 rules:
   - cre:
       id: bad-seq-one-condition
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       sequence:
         event:
-          source: kafka
+          source: cre.log.kafka
         order:
           - regex: "foo(.+)bar" # one condition not allowed

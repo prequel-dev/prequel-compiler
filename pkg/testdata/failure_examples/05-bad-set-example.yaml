@@ -1,9 +1,12 @@
 rules:
   - cre:
       id: bad-order
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         event:
-          source: kafka
+          source: cre.log.kafka
         order: # Use match instead
           - bar

@@ -1,11 +1,14 @@
 rules:
   - cre:
       id: bad-window
+    metadata:
+      id: rule-id
+      hash: rule-hash
     rule:
       set:
         # missing window
         event:
-          source: kafka
+          source: cre.log.kafka
         match:
           - foo
           - bar
