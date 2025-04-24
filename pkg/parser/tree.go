@@ -31,10 +31,8 @@ var (
 )
 
 var (
-	validCreIdRegex    = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
-	validBase58IdRegex = regexp.MustCompile(`^[1-9A-Za-z]+$`)
-	minRuleIdLength    = 12
-	minCreIdLength     = 4
+	validCreIdRegex    = regexp.MustCompile(`^[A-Za-z0-9-]{4,}$`)
+	validBase58IdRegex = regexp.MustCompile(`^[1-9A-Za-z]{12,}$`)
 )
 
 type TreeT struct {
@@ -111,7 +109,7 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, err
 		return nil, ErrMissingRuleId
 	}
 
-	if !isValidBase58Id(ruleId) || len(ruleId) < minRuleIdLength {
+	if !isValidBase58Id(ruleId) {
 		return nil, ErrInvalidRuleId
 	}
 
@@ -119,7 +117,7 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, err
 		return nil, ErrMissingRuleHash
 	}
 
-	if !isValidBase58Id(ruleHash) || len(ruleHash) < minRuleIdLength {
+	if !isValidBase58Id(ruleHash) {
 		return nil, ErrInvalidRuleHash
 	}
 
@@ -127,7 +125,7 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, err
 		return nil, ErrMissingCreId
 	}
 
-	if !isValidCreId(creId) || len(creId) < minCreIdLength {
+	if !isValidCreId(creId) {
 		return nil, ErrInvalidCreId
 	}
 
