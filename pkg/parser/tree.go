@@ -30,8 +30,10 @@ var (
 	ErrInvalidRuleHash = errors.New("invalid rule hash (must be base58)")
 )
 
-var validCreIdRegex = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
-var validBase58IdRegex = regexp.MustCompile(`^[1-9A-HJ-NP-Za-km-z-]+$`)
+var (
+	validCreIdRegex    = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+	validBase58IdRegex = regexp.MustCompile(`^[1-9A-HJ-NP-Za-km-z-]+$`)
+)
 
 type TreeT struct {
 	Nodes []*NodeT `json:"nodes"`
