@@ -178,6 +178,24 @@ func TestParseFail(t *testing.T) {
 			col:  7,
 			err:  ErrMissingRuleHash,
 		},
+		"Fail_BadRuleId": {
+			rule: testdata.TestFailBadRuleIdRule,
+			line: 11,
+			col:  7,
+			err:  ErrInvalidRuleId,
+		},
+		"Fail_BadCreId": {
+			rule: testdata.TestFailBadCreIdRule,
+			line: 11,
+			col:  7,
+			err:  ErrInvalidCreId,
+		},
+		"Fail_BadRuleHash": {
+			rule: testdata.TestFailBadRuleHashRule,
+			line: 11,
+			col:  7,
+			err:  ErrInvalidRuleHash,
+		},
 	}
 
 	for name, test := range tests {

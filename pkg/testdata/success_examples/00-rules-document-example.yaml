@@ -2,8 +2,8 @@ rules:
   - cre:
       id: cre-2025-0
     metadata:
-      id: rule-id=0
-      hash: rule-hash-0
+      id: eeJwJiWQa9TyH3qTYYSZM9
+      hash: 9GJSdx4smGJeJCdiw6tiK5
     rule:
       set:
         window: 5s
@@ -15,8 +15,8 @@ rules:
   - cre:
       id: cre-2025-1
     metadata:
-      id: rule-id-0
-      hash: rule-hash-1
+      id: eeJwJiWQa9TyH3qTYYSZM9
+      hash: 9GJSdx4smGJeJCdiw6tiK5
     rule:
       sequence:
         window: 10s

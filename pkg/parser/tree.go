@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
@@ -24,7 +25,13 @@ var (
 	ErrMissingRuleId   = errors.New("missing rule id")
 	ErrMissingRuleHash = errors.New("missing rule hash")
 	ErrMissingCreId    = errors.New("missing cre id")
+	ErrInvalidCreId    = errors.New("invalid cre id")
+	ErrInvalidRuleId   = errors.New("invalid rule id (must be base58)")
+	ErrInvalidRuleHash = errors.New("invalid rule hash (must be base58)")
 )
+
+var validCreIdRegex = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+var validBase58IdRegex = regexp.MustCompile(`^[1-9A-HJ-NP-Za-km-z-]+$`)
 
 type TreeT struct {
 	Nodes []*NodeT `json:"nodes"`
@@ -86,18 +93,38 @@ func newEvent(t *ParseEventT) *EventT {
 	}
 }
 
+func isValidBase58Id(s string) bool {
+	return validBase58IdRegex.MatchString(s)
+}
+
+func isValidCreId(s string) bool {
+	return validCreIdRegex.MatchString(s)
+}
+
 func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, error) {
 
 	if ruleId == "" {
 		return nil, ErrMissingRuleId
 	}
 
+	if !isValidBase58Id(ruleId) {
+		return nil, ErrInvalidRuleId
+	}
+
 	if ruleHash == "" {
 		return nil, ErrMissingRuleHash
 	}
 
+	if !isValidBase58Id(ruleHash) {
+		return nil, ErrInvalidRuleHash
+	}
+
 	if creId == "" {
 		return nil, ErrMissingCreId
+	}
+
+	if !isValidCreId(creId) {
+		return nil, ErrInvalidCreId
 	}
 
 	return &NodeT{

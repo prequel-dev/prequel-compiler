@@ -1005,3 +1005,57 @@ rules:
         match:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
+
+var TestFailBadCreIdRule = ` # Line 1 starts here
+rules:
+  - cre:
+      id: "asdf  asdf  asdf"
+      severity: 1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailBadRuleIdRule = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailBadRuleId
+      severity: 1
+    metadata:
+      id: "zzzzzz zzzzzz zzzzzz zzzzzz"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailBadRuleHashRule = ` # Line 1 starts here
+rules:
+  - cre:
+      id: TestFailBadRuleHash
+      severity: 1
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "asdfas asdf     a"
+      generation: 1
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+        match:
+          - regex: "io.vertx.core.VertxException: Thread blocked"
+`
