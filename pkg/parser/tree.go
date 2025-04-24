@@ -617,10 +617,25 @@ func ParseCres(data []byte) (map[string]ParseCreT, error) {
 func Parse(data []byte) (*TreeT, error) {
 
 	var (
+		config *RulesT
+		err    error
+	)
+
+	if config, err = Unmarshal(data); err != nil {
+		return nil, err
+	}
+
+	return ParseRules(config)
+}
+
+func Unmarshal(data []byte) (*RulesT, error) {
+
+	var (
 		docMap    *yaml.Node
 		termsNode *yaml.Node
 		config    RulesT
 		root      *yaml.Node
+		ok        bool
 		err       error
 	)
 
@@ -630,7 +645,7 @@ func Parse(data []byte) (*TreeT, error) {
 
 	docMap = root.Content[0]
 
-	rulesRoot, ok := findChild(docMap, docRules)
+	config.Root, ok = findChild(docMap, docRules)
 	if !ok {
 		return nil, errors.New("rules not found")
 	}
@@ -640,7 +655,7 @@ func Parse(data []byte) (*TreeT, error) {
 		config.TermsY = collectTermsY(termsNode)
 	}
 
-	return parseRules(config.Rules, config.TermsT, rulesRoot, config.TermsY)
+	return &config, nil
 }
 
 func parseRules(rules []ParseRuleT, termsT map[string]ParseTermT, rulesRoot *yaml.Node, termsY map[string]*yaml.Node) (*TreeT, error) {

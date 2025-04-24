@@ -929,7 +929,7 @@ rules:
         event:
           source: kafka
         correlations:
-          - hostname
+          - neighbor
         match:
           - value: "Killing"
         negate:
