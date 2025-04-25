@@ -70,9 +70,7 @@ func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT) (*ObjT, error) {
 		Origin:        lm.Event.Origin,
 	}
 
-	obj.Cb = CbT{
-		Callback: runtime.NewCbMatch(params),
-	}
+	obj.Cb = runtime.NewCbMatch(params)
 
 	switch node.Metadata.Type {
 	case schema.NodeTypeLogSeq:

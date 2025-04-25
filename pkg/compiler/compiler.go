@@ -21,13 +21,6 @@ var (
 	defaultRuntime = &NoopRuntime{}
 )
 
-type CbType uint
-type CorrelationsT map[string]string
-
-type CbT struct {
-	Callback any
-}
-
 type ObjsT []*ObjT
 
 type ObjTypeT string
@@ -50,7 +43,7 @@ type ObjT struct {
 	ObjectType    ObjTypeT             `json:"object_type"`
 	Event         ast.AstEventT        `json:"event"`
 	Object        any                  `json:"object"`
-	Cb            CbT                  `json:"cb"`
+	Cb            CallbackT            `json:"cb"`
 }
 
 type compilerOptsT struct {
