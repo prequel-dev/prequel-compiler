@@ -1,12 +1,14 @@
 package parser
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
@@ -103,6 +105,11 @@ func isValidCreId(s string) bool {
 	return validCreIdRegex.MatchString(s)
 }
 
+func encodeHash(h string) string {
+	hash := sha1.Sum([]byte(h))
+	return base58.Encode(hash[:])
+}
+
 func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, error) {
 
 	if ruleId == "" {
@@ -113,20 +120,24 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, err
 		return nil, ErrInvalidRuleId
 	}
 
-	if ruleHash == "" {
-		return nil, ErrMissingRuleHash
-	}
-
-	if !isValidBase58Id(ruleHash) {
-		return nil, ErrInvalidRuleHash
-	}
-
 	if creId == "" {
 		return nil, ErrMissingCreId
 	}
 
 	if !isValidCreId(creId) {
 		return nil, ErrInvalidCreId
+	}
+
+	// If a hash does not exist, then generate one derived from the rule id and cre id. We
+	// cannot derive from yaml Node since init is called from multiple places in the Yaml
+	// for the same rule and we need a consistent hash across all nodes for the same rule.
+	if ruleHash == "" {
+		log.Warn().Msg("Rule hash is empty -- generating rule hash")
+		ruleHash = encodeHash(ruleId + creId)
+	}
+
+	if !isValidBase58Id(ruleHash) {
+		return nil, ErrInvalidRuleHash
 	}
 
 	return &NodeT{

@@ -989,7 +989,7 @@ rules:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
 
-var TestFailMissingRuleHashRule = ` # Line 1 starts here
+var TestSuccessMissingRuleHashRule = ` # Line 1 starts here
 rules:
   - cre:
       id: TestFailMissingRuleHash

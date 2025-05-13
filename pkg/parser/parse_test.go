@@ -58,6 +58,11 @@ func TestParseSuccess(t *testing.T) {
 			expectedNodeTypes:  []string{"machine_seq", "log_seq", "log_set", "machine_seq", "log_seq", "log_set", "log_set"},
 			expectedNegIndexes: []int{-1, 2, 2, -1, -1, -1, -1},
 		},
+		"Success_MissingRuleHash": {
+			rule:               testdata.TestSuccessMissingRuleHashRule,
+			expectedNodeTypes:  []string{"log_set"},
+			expectedNegIndexes: []int{-1},
+		},
 	}
 
 	for name, test := range tests {
@@ -171,12 +176,6 @@ func TestParseFail(t *testing.T) {
 			line: 10,
 			col:  7,
 			err:  ErrMissingRuleId,
-		},
-		"Fail_MissingRuleHash": {
-			rule: testdata.TestFailMissingRuleHashRule,
-			line: 10,
-			col:  7,
-			err:  ErrMissingRuleHash,
 		},
 		"Fail_BadRuleId": {
 			rule: testdata.TestFailBadRuleIdRule,
