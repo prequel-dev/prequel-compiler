@@ -67,10 +67,10 @@ type ParseCreT struct {
 	Author          string              `yaml:"author,omitempty" json:"author,omitempty"`
 	Description     string              `yaml:"description,omitempty" json:"description,omitempty"`
 	Impact          string              `yaml:"impact,omitempty" json:"impact,omitempty"`
-	ImpactScore     uint                `yaml:"impact_score,omitempty" json:"impact_score,omitempty"`
+	ImpactScore     uint                `yaml:"impactScore,omitempty" json:"impact_score,omitempty"`
 	Cause           string              `yaml:"cause,omitempty" json:"cause,omitempty"`
 	Mitigation      string              `yaml:"mitigation,omitempty" json:"mitigation,omitempty"`
-	MitigationScore uint                `yaml:"mitigation_score,omitempty" json:"mitigation_score,omitempty"`
+	MitigationScore uint                `yaml:"mitigationScore,omitempty" json:"mitigation_score,omitempty"`
 	References      []string            `yaml:"references,omitempty" json:"references,omitempty"`
 	Reports         uint                `yaml:"reports,omitempty" json:"reports,omitempty"`
 	Applications    []ParseApplicationT `yaml:"applications,omitempty" json:"applications,omitempty"`
