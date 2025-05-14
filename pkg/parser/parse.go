@@ -149,7 +149,7 @@ type ParseEventT struct {
 type RulesT struct {
 	Rules  []ParseRuleT          `yaml:"rules"`
 	Root   *yaml.Node            `yaml:"-"`
-	TermsT map[string]ParseTermT `yaml:"terms"`
+	TermsT map[string]ParseTermT `yaml:"terms,omitempty"`
 	TermsY map[string]*yaml.Node `yaml:"-"`
 }
 
