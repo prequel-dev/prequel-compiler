@@ -18,20 +18,21 @@ import (
 )
 
 var (
-	ErrRuleNotFound    = errors.New("rule not found")
-	ErrNotSupported    = errors.New("not supported")
-	ErrTermNotFound    = errors.New("term not found")
-	ErrMissingOrder    = errors.New("'sequence' missing 'order'")
-	ErrMissingMatch    = errors.New("'set' missing 'match'")
-	ErrInvalidWindow   = errors.New("invalid 'window'")
-	ErrTermsMapping    = errors.New("'terms' must be a mapping")
-	ErrDuplicateTerm   = errors.New("duplicate term name")
-	ErrMissingRuleId   = errors.New("missing rule id")
-	ErrMissingRuleHash = errors.New("missing rule hash")
-	ErrMissingCreId    = errors.New("missing cre id")
-	ErrInvalidCreId    = errors.New("invalid cre id")
-	ErrInvalidRuleId   = errors.New("invalid rule id (must be base58)")
-	ErrInvalidRuleHash = errors.New("invalid rule hash (must be base58)")
+	ErrRuleNotFound     = errors.New("rule not found")
+	ErrRuleRootNotFound = errors.New("missing rule section")
+	ErrNotSupported     = errors.New("not supported")
+	ErrTermNotFound     = errors.New("term not found")
+	ErrMissingOrder     = errors.New("'sequence' missing 'order'")
+	ErrMissingMatch     = errors.New("'set' missing 'match'")
+	ErrInvalidWindow    = errors.New("invalid 'window'")
+	ErrTermsMapping     = errors.New("'terms' must be a mapping")
+	ErrDuplicateTerm    = errors.New("duplicate term name")
+	ErrMissingRuleId    = errors.New("missing rule id")
+	ErrMissingRuleHash  = errors.New("missing rule hash")
+	ErrMissingCreId     = errors.New("missing cre id")
+	ErrInvalidCreId     = errors.New("invalid cre id")
+	ErrInvalidRuleId    = errors.New("invalid rule id (must be base58)")
+	ErrInvalidRuleHash  = errors.New("invalid rule hash (must be base58)")
 )
 
 var (
@@ -220,7 +221,13 @@ func buildTree(termsT map[string]ParseTermT, r ParseRuleT, ruleNode *yaml.Node, 
 
 	n, ok = findChild(ruleNode, docRule)
 	if !ok {
-		return nil, root.WrapError(ErrRuleNotFound)
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: ruleNode.Line, Col: ruleNode.Column},
+			r.Metadata.Id,
+			r.Metadata.Hash,
+			r.Cre.Id,
+			ErrRuleRootNotFound,
+		)
 	}
 
 	switch {
@@ -273,7 +280,13 @@ func buildSequenceTree(root *NodeT, termsT map[string]ParseTermT, r ParseRuleT, 
 
 	orderYn, ok = findChild(ruleNode, docOrder)
 	if !ok {
-		return nil, root.WrapError(ErrMissingOrder)
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: ruleNode.Line, Col: ruleNode.Column},
+			r.Metadata.Id,
+			r.Metadata.Hash,
+			r.Cre.Id,
+			ErrMissingOrder,
+		)
 	}
 
 	// Negate is optional
@@ -313,7 +326,13 @@ func buildSetTree(root *NodeT, termsT map[string]ParseTermT, r ParseRuleT, ruleN
 
 	matchYn, ok = findChild(ruleNode, docMatch)
 	if !ok {
-		return nil, root.WrapError(ErrMissingMatch)
+		return nil, pqerr.Wrap(
+			pqerr.Pos{Line: ruleNode.Line, Col: ruleNode.Column},
+			r.Metadata.Id,
+			r.Metadata.Hash,
+			r.Cre.Id,
+			ErrMissingMatch,
+		)
 	}
 
 	// Negate is optional
