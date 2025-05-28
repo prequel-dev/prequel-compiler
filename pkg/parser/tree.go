@@ -686,30 +686,38 @@ func Hash(h string) string {
 	return base58.Encode(hash[:])
 }
 
-// HashRule to provide a unique stable identity for the rule.  It can be used for dupe detection.
-// The hash is based on the rule's content, excluding metadata that is not semantically important.
+// HashRule to provide a unique identity for the rule.
+// The hash is based on the rule's content, excluding previous hash calculations.
 
 func HashRule(rule ParseRuleT) (string, error) {
+	rule.Metadata.Hash = "" // Hash is what we are generating here, not semantically important
+	return _hashRule(rule)
+}
 
-	// Strip out versioning metadata before calculating the hash.
+// StableHash to provide a unique stable identity for the rule.  It can be used for dupe detection.
+// The hash is based on the rule's content, excluding metadata that is not semantically important.
+
+func StableHash(rule ParseRuleT) (string, error) {
+
+	// Strip out versioning metadata before calculating the stable hash.
 	// The versioning metadata is not semantically important for the rule's content,
 	// so we can safely ignore it for the purpose of hashing.
 	// This is important to ensure that the hash remains consistent across changes
 	// that do not affect the rule's content, such as version bumps or metadata changes.
 
-	// The field rule.Metadata.Id is considered part of the rules identity and should be included in the hash.
+	// The field rule.Metadata.Id is considered part of the rules identity and should be included in the stable hash.
 	// Rules can change over time having the following properties:
 	// - Metadata.Id: Unique identifier for the rule, which is immutable for the lifetime of the rule.
 	// - Metadata.Hash: A hash of the rule's content, which is regenerated on every semantic change.
 	// - Metadata.Version: A version string that *should* be incremented on changes, but is not semantically important.
 	// - Metadata.Gen: A generation counter that is incremented on every change, but is not semantically important.
 
-	// NOTE: Modify 'rule' is acceptable because parameter passed by value.
-
 	rule.Metadata.Gen = 0      // Gen is bumped on every semantic change, so we don't want it in the hash
-	rule.Metadata.Hash = ""    // Hash is what we are generating here, not semantically important
 	rule.Metadata.Version = "" // Version may be bumped on change, also not semantically important
+	return HashRule(rule)
+}
 
+func _hashRule(rule ParseRuleT) (string, error) {
 	// json.Marshal to produce deterministic output
 	jsonBytes, err := json.Marshal(rule)
 	if err != nil {
