@@ -4,6 +4,7 @@ const (
 	ScopeOrganization = "organization"
 	ScopeCluster      = "cluster"
 	ScopeNode         = "node"
+	ScopeDefault      = "default"
 )
 
 type NodeTypeT string

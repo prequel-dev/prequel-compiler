@@ -101,6 +101,7 @@ type ParseTermT struct {
 	Set        *ParseSetT        `yaml:"set,omitempty"`
 	Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
 	NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
+	Extract    []ParseExtractT   `yaml:"extract,omitempty"`
 }
 
 type ParseSetT struct {
@@ -109,6 +110,12 @@ type ParseSetT struct {
 	Event        *ParseEventT `yaml:"event,omitempty"`
 	Match        []ParseTermT `yaml:"match,omitempty"`
 	Negate       []ParseTermT `yaml:"negate,omitempty"`
+}
+
+type ParseExtractT struct {
+	Name       string `yaml:"name"`
+	JqValue    string `yaml:"jq,omitempty"`
+	RegexValue string `yaml:"regex,omitempty"`
 }
 
 func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
@@ -126,6 +133,7 @@ func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 		Set        *ParseSetT        `yaml:"set,omitempty"`
 		Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
 		NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
+		Extract    []ParseExtractT   `yaml:"extract,omitempty"`
 	}
 	if err := unmarshal(&temp); err != nil {
 		return err
@@ -138,6 +146,7 @@ func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 	o.Set = temp.Set
 	o.Sequence = temp.Sequence
 	o.NegateOpts = temp.NegateOpts
+	o.Extract = temp.Extract
 	return nil
 }
 
