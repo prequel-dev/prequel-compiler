@@ -17,7 +17,7 @@ var (
 )
 
 var (
-	defaultPlugin  = &NodePlugin{}
+	defaultPlugin  = NewDefaultPlugin()
 	defaultRuntime = &NoopRuntime{}
 )
 
@@ -77,7 +77,7 @@ func WithPlugin(scope string, plugin PluginI) CompilerOptT {
 
 func parseOpts(opts []CompilerOptT) compilerOptsT {
 	o := compilerOptsT{
-		plugins: map[string]PluginI{"node": defaultPlugin},
+		plugins: map[string]PluginI{schema.ScopeDefault: defaultPlugin},
 		runtime: defaultRuntime,
 	}
 	for _, opt := range opts {

@@ -6,13 +6,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type NodePlugin struct{}
+type DefaultPlugin struct{}
 
-func NewNodePlugin() *NodePlugin {
-	return &NodePlugin{}
+func NewDefaultPlugin() *DefaultPlugin {
+	return &DefaultPlugin{}
 }
 
-func (p *NodePlugin) Compile(runtime RuntimeI, node *ast.AstNodeT) (ObjsT, error) {
+func (p *DefaultPlugin) Compile(runtime RuntimeI, node *ast.AstNodeT) (ObjsT, error) {
 
 	var (
 		objs = make(ObjsT, 0)

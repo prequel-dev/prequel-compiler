@@ -65,6 +65,10 @@ func TestAstSuccess(t *testing.T) {
 			rule:              testdata.TestSuccessNegateOptions2,
 			expectedNodeTypes: []string{"machine_seq", "log_seq", "log_set", "log_set"},
 		},
+		"Success_Extract1": {
+			rule:              testdata.TestSuccessSimpleExtraction,
+			expectedNodeTypes: []string{"machine_seq", "log_seq"},
+		},
 	}
 
 	for name, test := range tests {

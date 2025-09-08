@@ -336,6 +336,32 @@ terms:
         - value: "Killing"
 `
 
+var TestSuccessSimpleExtraction = `
+rules:
+  - cre:
+      id: TestSuccessSimpleExtraction
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 30s
+        event:
+          source: log
+        correlations:
+          - corr1
+        order:
+          - value: "term1"
+            extract:
+            - name: "corr1"
+              jq: ".field1"
+          - value: "term2"
+            extract:
+              - name: "corr1"
+                jq: ".field1"
+`
+
 /* Failure cases */
 var TestFailTypo = ` # Line 1 starts here
 rules:

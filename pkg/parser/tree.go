@@ -33,11 +33,13 @@ var (
 	ErrInvalidCreId     = errors.New("invalid cre id")
 	ErrInvalidRuleId    = errors.New("invalid rule id (must be base58)")
 	ErrInvalidRuleHash  = errors.New("invalid rule hash (must be base58)")
+	ErrExtractName      = errors.New("invalid extract name (alphanumeric and underscores only)")
 )
 
 var (
-	validCreIdRegex    = regexp.MustCompile(`^[A-Za-z0-9-]{4,}$`)
-	validBase58IdRegex = regexp.MustCompile(`^[1-9A-Za-z]{12,}$`)
+	validCreIdRegex     = regexp.MustCompile(`^[A-Za-z0-9-]{4,}$`)
+	validBase58IdRegex  = regexp.MustCompile(`^[1-9A-Za-z]{12,}$`)
+	validateExtractName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 )
 
 type TreeT struct {
@@ -74,6 +76,12 @@ type NegateOptsT struct {
 	Absolute bool          `json:"absolute"`
 }
 
+type ExtractT struct {
+	Name       string `json:"name"`
+	JqValue    string `json:"jq_value,omitempty"`
+	RegexValue string `json:"regex_value,omitempty"`
+}
+
 type FieldT struct {
 	Field      string       `json:"field"`
 	StrValue   string       `json:"value"`
@@ -81,6 +89,7 @@ type FieldT struct {
 	RegexValue string       `json:"regex_value"`
 	Count      int          `json:"count"`
 	NegateOpts *NegateOptsT `json:"negate"`
+	Extract    []ExtractT   `json:"extract,omitempty"`
 }
 
 type TermsT struct {
@@ -106,6 +115,10 @@ func isValidBase58Id(s string) bool {
 
 func isValidCreId(s string) bool {
 	return validCreIdRegex.MatchString(s)
+}
+
+func isValidExtractName(s string) bool {
+	return validateExtractName.MatchString(s)
 }
 
 func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, error) {
@@ -481,6 +494,23 @@ func nodeFromTerm(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, 
 	return node, nil
 }
 
+func extractTerms(terms []ParseExtractT) ([]ExtractT, error) {
+	var extracts []ExtractT
+	for _, term := range terms {
+
+		if !isValidExtractName(term.Name) {
+			return nil, ErrExtractName
+		}
+
+		extracts = append(extracts, ExtractT{
+			Name:       term.Name,
+			JqValue:    term.JqValue,
+			RegexValue: term.RegexValue,
+		})
+	}
+	return extracts, nil
+}
+
 func negateOpts(term ParseTermT) (*NegateOptsT, error) {
 	var (
 		opts = &NegateOptsT{}
@@ -581,22 +611,30 @@ func buildPosNegChildren(node *NodeT, termsT map[string]ParseTermT, matches, neg
 func parseValue(term ParseTermT, negate bool) (*MatcherT, error) {
 
 	var (
+		err     error
 		matcher = &MatcherT{}
 	)
 
 	switch negate {
 	case false:
+		var extracts []ExtractT
+		if len(term.Extract) > 0 {
+			if extracts, err = extractTerms(term.Extract); err != nil {
+				return nil, err
+			}
+		}
+
 		matcher.Match.Fields = append(matcher.Match.Fields, FieldT{
 			Field:      term.Field,
 			StrValue:   term.StrValue,
 			JqValue:    term.JqValue,
 			RegexValue: term.RegexValue,
 			Count:      term.Count,
+			Extract:    extracts,
 		})
 	case true:
 
 		var (
-			err  error
 			opts *NegateOptsT
 		)
 

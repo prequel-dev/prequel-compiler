@@ -13,13 +13,17 @@ import (
 var (
 	ErrSeqPosConditions = errors.New("sequences require two or more positive conditions")
 	ErrMissingScalar    = errors.New("missing string, jq, or regex condition")
+	ErrExtractTerm      = errors.New("invalid extract (must have name and one of jq or regex)")
+	ErrNegateCount      = errors.New("negate fields cannot have count > 1")
+	ErrExtractNegate    = errors.New("negate fields cannot have extracts")
 )
 
 type AstLogMatcherT struct {
-	Event  AstEventT
-	Match  []AstFieldT
-	Negate []AstFieldT
-	Window time.Duration
+	Event        AstEventT
+	Match        []AstFieldT
+	Negate       []AstFieldT
+	Correlations []string
+	Window       time.Duration
 }
 
 func validateLogSeq(n *parser.NodeT, matches int) error {
@@ -86,15 +90,7 @@ func (b *builderT) buildLogMatcherNode(parserNode *parser.NodeT, machineAddress 
 
 		// Count match fields and remember values
 		for _, field := range match.Match.Fields {
-			if field.Count > 1 {
-				for i := 0; i < field.Count; i++ {
-					if term, err = newMatchTerm(field); err != nil {
-						zlog.Error().Err(err).Msg("Invalid match field term")
-						return nil, parserNode.WrapError(err)
-					}
-					matchFields = append(matchFields, term)
-				}
-			} else {
+			for range max(field.Count, 1) {
 				if term, err = newMatchTerm(field); err != nil {
 					zlog.Error().Err(err).Msg("Invalid match field term")
 					return nil, parserNode.WrapError(err)
@@ -106,20 +102,17 @@ func (b *builderT) buildLogMatcherNode(parserNode *parser.NodeT, machineAddress 
 		// Count negate fields and remember values
 		for _, field := range match.Negate.Fields {
 			if field.Count > 1 {
-				for range field.Count {
-					if term, err = newNegateTerm(field, uint32(len(match.Negate.Fields))); err != nil {
-						zlog.Error().Err(err).Msg("Invalid negate field term")
-						return nil, parserNode.WrapError(err)
-					}
-					negateFields = append(negateFields, term)
-				}
-			} else {
-				if term, err = newNegateTerm(field, uint32(len(match.Negate.Fields))); err != nil {
-					zlog.Error().Err(err).Msg("Invalid negate field term")
-					return nil, parserNode.WrapError(err)
-				}
-				negateFields = append(negateFields, term)
+				err = ErrNegateCount
+				zlog.Error().Err(err).Int("count", field.Count).Msg("Negate field with count > 1")
+				return nil, parserNode.WrapError(err)
+
 			}
+			if term, err = newNegateTerm(field, uint32(len(match.Negate.Fields))); err != nil {
+				zlog.Error().Err(err).Msg("Invalid negate field term")
+				return nil, parserNode.WrapError(err)
+			}
+			negateFields = append(negateFields, term)
+
 		}
 	}
 
@@ -153,9 +146,10 @@ func (b *builderT) doBuildLogMatcherNode(parserNode *parser.NodeT, machineAddres
 			Origin: parserNode.Metadata.Event.Origin,
 			Source: parserNode.Metadata.Event.Source,
 		},
-		Match:  matchFields,
-		Negate: negateFields,
-		Window: parserNode.Metadata.Window,
+		Match:        matchFields,
+		Negate:       negateFields,
+		Window:       parserNode.Metadata.Window,
+		Correlations: parserNode.Metadata.Correlations,
 	}
 
 	return matchNode, nil
@@ -169,6 +163,15 @@ func newMatchTerm(field parser.FieldT) (AstFieldT, error) {
 
 	t = AstFieldT{
 		Field: field.Field,
+	}
+
+	if len(field.Extract) > 0 {
+		extracts, err := extractTerms(field.Extract)
+		if err != nil {
+			return AstFieldT{}, err
+		}
+
+		t.Extracts = extracts
 	}
 
 	if field.StrValue != "" {
@@ -208,6 +211,11 @@ func newNegateTerm(field parser.FieldT, anchors uint32) (AstFieldT, error) {
 		err error
 	)
 
+	if len(field.Extract) > 0 {
+		log.Error().Msg("Negate terms cannot have extracts")
+		return AstFieldT{}, ErrExtractNegate
+	}
+
 	if t, err = newMatchTerm(field); err != nil {
 		return AstFieldT{}, err
 	}
@@ -227,4 +235,28 @@ func newNegateTerm(field parser.FieldT, anchors uint32) (AstFieldT, error) {
 	}
 
 	return t, nil
+}
+
+func extractTerms(terms []parser.ExtractT) ([]AstExtractT, error) {
+	var extracts []AstExtractT
+	for _, term := range terms {
+		var (
+			cnt int
+			e   = AstExtractT{Name: term.Name}
+		)
+
+		if term.RegexValue != "" {
+			cnt++
+			e.RegexValue = term.RegexValue
+		}
+		if term.JqValue != "" {
+			cnt++
+			e.JqValue = term.JqValue
+		}
+		if cnt != 1 {
+			return nil, ErrExtractTerm
+		}
+		extracts = append(extracts, e)
+	}
+	return extracts, nil
 }
