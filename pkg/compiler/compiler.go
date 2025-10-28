@@ -197,7 +197,7 @@ func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
 	sortObjs(outObjs, schema.NodeTypeSet)
 
 	for _, obj := range outObjs {
-		log.Info().
+		log.Debug().
 			Str("abstract_type", obj.AbstractType.String()).
 			Str("abstract_address", obj.Address.String()).
 			Str("object_type", obj.ObjectType.String()).
