@@ -24,25 +24,31 @@ type AstSetMatcherT struct {
 
 func (b *builderT) buildMachineNode(parserNode *parser.NodeT, parentMachineAddress, machineAddress *AstNodeAddressT, children []*AstNodeT) (*AstNodeT, error) {
 	var (
-		seqMatcher *AstSeqMatcherT
-		setMatcher *AstSetMatcherT
-		matchNode  = newAstNode(parserNode, parserNode.Metadata.Type, schema.ScopeCluster, parentMachineAddress, machineAddress)
-		err        error
+		matchNode = newAstNode(parserNode, parserNode.Metadata.Type, schema.ScopeCluster, parentMachineAddress, machineAddress)
 	)
 
 	switch parserNode.Metadata.Type {
 	case schema.NodeTypeSeq, schema.NodeTypeLogSeq:
 		matchNode.Metadata.Type = schema.NodeTypeSeq
-		if seqMatcher, err = buildSeqMatcher(parserNode, children); err != nil {
+		if seqMatcher, err := buildSeqMatcher(parserNode, children); err != nil {
 			return nil, err
+		} else {
+			matchNode.Object = seqMatcher
 		}
-		matchNode.Object = seqMatcher
 	case schema.NodeTypeSet, schema.NodeTypeLogSet:
 		matchNode.Metadata.Type = schema.NodeTypeSet
-		if setMatcher, err = buildSetMatcher(parserNode, children); err != nil {
+		if setMatcher, err := buildSetMatcher(parserNode, children); err != nil {
 			return nil, err
+		} else {
+			matchNode.Object = setMatcher
 		}
-		matchNode.Object = setMatcher
+	case schema.NodeTypePromQL:
+		matchNode.Metadata.Type = schema.NodeTypePromQL
+		if promMatcher, err := b.buildPromQLNode(parserNode, machineAddress, nil); err != nil {
+			return nil, err
+		} else {
+			matchNode.Object = promMatcher
+		}
 	default:
 		log.Error().
 			Str("type", parserNode.Metadata.Type.String()).

@@ -14,7 +14,7 @@ const (
 	NodeTypeSet    NodeTypeT = "machine_set"
 	NodeTypeLogSeq NodeTypeT = "log_seq"
 	NodeTypeLogSet NodeTypeT = "log_set"
-	NodeTypeDesc   NodeTypeT = "desc"
+	NodeTypePromQL NodeTypeT = "promql"
 )
 
 func (t NodeTypeT) String() string {

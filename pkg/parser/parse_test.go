@@ -61,15 +61,20 @@ func TestParseSuccess(t *testing.T) {
 			expectedNegIndexes: []int{-1, 2, 2, -1, -1, -1, -1},
 		},
 		"Success_MissingRuleId": {
-                        rule: testdata.TestFailMissingRuleIdRule,
+			rule:               testdata.TestFailMissingRuleIdRule,
 			expectedNodeTypes:  []string{"log_set"},
 			expectedNegIndexes: []int{-1},
-                },
-                "Success_MissingRuleHash": {
-                        rule: testdata.TestFailMissingRuleHashRule,
+		},
+		"Success_MissingRuleHash": {
+			rule:               testdata.TestFailMissingRuleHashRule,
 			expectedNodeTypes:  []string{"log_set"},
 			expectedNegIndexes: []int{-1},
-                },
+		},
+		"Success_PromQL": {
+			rule:               testdata.TestSuccessSimplePromQL,
+			expectedNodeTypes:  []string{"machine_set", "promql", "log_set"},
+			expectedNegIndexes: []int{-1, -1, -1},
+		},
 	}
 
 	for name, test := range tests {
