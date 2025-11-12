@@ -161,11 +161,17 @@ func (b *builderT) buildTree(parserNode *parser.NodeT, parentMachineAddress *Ast
 	)
 
 	// Build children (either matcher children or nested machines)
-	if isMatcherNode(parserNode) {
+	if parserNode.IsMatcherNode() {
 		if matchNode, err = b.buildMatcherChildren(parserNode, machineAddress, termIdx); err != nil {
 			return nil, err
 		}
 		children = append(children, matchNode)
+	} else if parserNode.IsPromNode() {
+		if matchNode, err = b.buildPromQLNode(parserNode, machineAddress, termIdx); err != nil {
+			return nil, err
+		}
+		children = append(children, matchNode)
+
 	} else {
 		if children, err = b.buildMachineChildren(parserNode, machineAddress); err != nil {
 			return nil, err
@@ -210,20 +216,6 @@ func newAstNode(parserNode *parser.NodeT, typ schema.NodeTypeT, scope string, pa
 	}
 }
 
-func isMatcherNode(node *parser.NodeT) bool {
-	var (
-		hasMatcher = true
-	)
-
-	for _, child := range node.Children {
-		if _, ok := child.(*parser.MatcherT); !ok {
-			hasMatcher = false
-		}
-	}
-
-	return hasMatcher
-}
-
 func (b *builderT) buildMatcherChildren(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
 
 	var (
@@ -265,6 +257,8 @@ func (b *builderT) buildMatcherNodes(parserNode *parser.NodeT, machineAddress *A
 	switch parserNode.Metadata.Type {
 	case schema.NodeTypeLogSeq:
 	case schema.NodeTypeLogSet:
+	case schema.NodeTypePromQL:
+		return b.buildPromQLNode(parserNode, machineAddress, termIdx)
 	default:
 		return nil, parserNode.WrapError(ErrInvalidNodeType)
 	}
@@ -372,7 +366,7 @@ func (b *builderT) buildStateMachine(parserNode *parser.NodeT, parentMachineAddr
 				Msg("Window is required for sequences")
 			return nil, parserNode.WrapError(ErrInvalidWindow)
 		}
-	case schema.NodeTypeSet, schema.NodeTypeLogSet:
+	case schema.NodeTypeSet, schema.NodeTypeLogSet, schema.NodeTypePromQL:
 	default:
 		log.Error().
 			Any("address", machineAddress).

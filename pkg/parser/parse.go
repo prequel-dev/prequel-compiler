@@ -101,6 +101,7 @@ type ParseTermT struct {
 	Set        *ParseSetT        `yaml:"set,omitempty"`
 	Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
 	NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
+	PromQL     *ParsePromQL      `yaml:"promql,omitempty"`
 	Extract    []ParseExtractT   `yaml:"extract,omitempty"`
 }
 
@@ -118,6 +119,13 @@ type ParseExtractT struct {
 	RegexValue string `yaml:"regex,omitempty"`
 }
 
+type ParsePromQL struct {
+	Expr     string       `yaml:"expr"`
+	Interval string       `yaml:"interval,omitempty"`
+	For      string       `yaml:"for,omitempty"`
+	Event    *ParseEventT `yaml:"event,omitempty"`
+}
+
 func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 	var str string
 	if err := unmarshal(&str); err == nil {
@@ -125,15 +133,16 @@ func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 		return nil
 	}
 	var temp struct {
-		Field      string            `yaml:"field,omitempty"`
-		StrValue   string            `yaml:"value,omitempty"`
-		JqValue    string            `yaml:"jq,omitempty"`
-		RegexValue string            `yaml:"regex,omitempty"`
-		Count      int               `yaml:"count,omitempty"`
-		Set        *ParseSetT        `yaml:"set,omitempty"`
-		Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
-		NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
-		Extract    []ParseExtractT   `yaml:"extract,omitempty"`
+		Field       string            `yaml:"field,omitempty"`
+		StrValue    string            `yaml:"value,omitempty"`
+		JqValue     string            `yaml:"jq,omitempty"`
+		RegexValue  string            `yaml:"regex,omitempty"`
+		Count       int               `yaml:"count,omitempty"`
+		Set         *ParseSetT        `yaml:"set,omitempty"`
+		Sequence    *ParseSequenceT   `yaml:"sequence,omitempty"`
+		NegateOpts  *ParseNegateOptsT `yaml:",inline,omitempty"`
+		ParsePromQL *ParsePromQL      `yaml:"promql,omitempty"`
+		Extract     []ParseExtractT   `yaml:"extract,omitempty"`
 	}
 	if err := unmarshal(&temp); err != nil {
 		return err
@@ -146,6 +155,7 @@ func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 	o.Set = temp.Set
 	o.Sequence = temp.Sequence
 	o.NegateOpts = temp.NegateOpts
+	o.PromQL = temp.ParsePromQL
 	o.Extract = temp.Extract
 	return nil
 }

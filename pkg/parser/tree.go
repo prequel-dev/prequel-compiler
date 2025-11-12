@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
 	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,7 @@ var (
 	ErrInvalidRuleId    = errors.New("invalid rule id (must be base58)")
 	ErrInvalidRuleHash  = errors.New("invalid rule hash (must be base58)")
 	ErrExtractName      = errors.New("invalid extract name (alphanumeric and underscores only)")
+	ErrInnerEvent       = errors.New("invalid event on inner node")
 )
 
 var (
@@ -102,6 +104,16 @@ type MatcherT struct {
 	Window time.Duration `json:"window"`
 }
 
+type PromQLT struct {
+	Expr     string         `json:"expr"`
+	For      *time.Duration `json:"for,omitempty"`
+	Interval *time.Duration `json:"interval,omitempty"`
+}
+
+// PromQLValidator validates a PromQL expression.
+// Hook exposed to avoid importing promql dependencies in compiler.
+var PromQLValidator = func(expr string) error { return nil }
+
 func newEvent(t *ParseEventT) *EventT {
 	return &EventT{
 		Source: t.Source,
@@ -159,17 +171,91 @@ func initNode(ruleId, ruleHash string, creId string, yn *yaml.Node) (*NodeT, err
 	}, nil
 }
 
-func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool, yn *yaml.Node) error {
+func assignNodeSeq(node *NodeT, seq *ParseSequenceT) error {
 
-	node.Metadata.Type = schema.NodeTypeSeq
+	if seq.Event == nil {
+		node.Metadata.Type = schema.NodeTypeSeq
+		return nil
+	}
+
+	// Propagate the event
+	node.Metadata.Event = newEvent(seq.Event)
+
+	switch {
+	case node.IsPromNode():
+		node.Metadata.Type = schema.NodeTypePromQL
+	case !node.IsMatcherNode():
+		return ErrInnerEvent
+	default:
+		node.Metadata.Type = schema.NodeTypeLogSeq
+	}
+
+	return nil
+}
+
+func assignNodeSet(node *NodeT, set *ParseSetT) error {
+
+	if set.Event == nil {
+		node.Metadata.Type = schema.NodeTypeSet
+		return nil
+	}
+
+	// Propagate the event
+	node.Metadata.Event = newEvent(set.Event)
+
+	switch {
+	case node.IsPromNode():
+		node.Metadata.Type = schema.NodeTypePromQL
+	case !node.IsMatcherNode():
+		return ErrInnerEvent
+	default:
+		node.Metadata.Type = schema.NodeTypeLogSet
+	}
+
+	return nil
+}
+
+func (node *NodeT) IsMatcherNode() bool {
+	if len(node.Children) == 0 {
+		return false
+	}
+
+	allMatcher := true
+
+	for _, child := range node.Children {
+		if _, ok := child.(*MatcherT); !ok {
+			allMatcher = false
+			break
+		}
+	}
+
+	return allMatcher
+}
+
+func (node *NodeT) IsPromNode() bool {
+	if len(node.Children) == 0 {
+		return false
+	}
+
+	allPromQL := true
+	for _, child := range node.Children {
+		if _, ok := child.(*PromQLT); !ok {
+			allPromQL = false
+			break
+		}
+	}
+
+	return allPromQL
+}
+
+func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool, yn *yaml.Node) error {
 
 	if !order {
 		return node.WrapError(ErrMissingOrder)
 	}
 
-	if seq.Event != nil {
-		node.Metadata.Type = schema.NodeTypeLogSeq
-		node.Metadata.Event = newEvent(seq.Event)
+	if err := assignNodeSeq(node, seq); err != nil {
+		return err
 	}
 
 	if seq.Window != "" {
@@ -193,15 +279,12 @@ func seqNodeProps(node *NodeT, seq *ParseSequenceT, order bool, yn *yaml.Node) e
 
 func setNodeProps(node *NodeT, set *ParseSetT, match bool, yn *yaml.Node) error {
 
-	node.Metadata.Type = schema.NodeTypeSet
-
 	if !match {
 		return node.WrapError(ErrMissingMatch)
 	}
 
-	if set.Event != nil {
-		node.Metadata.Type = schema.NodeTypeLogSet
-		node.Metadata.Event = newEvent(set.Event)
+	if err := assignNodeSet(node, set); err != nil {
+		return err
 	}
 
 	if set.Window != "" {
@@ -312,16 +395,16 @@ func buildSequenceTree(root *NodeT, termsT map[string]ParseTermT, r ParseRuleT, 
 		return nil, err
 	}
 
-	// Apply sequence-specific node properties
-	if err := seqNodeProps(root, seq, seq.Order != nil, orderYn); err != nil {
-		return nil, err
-	}
-
 	// Order positive first, then negatives
 	root.Children = append(root.Children, pos...)
 	root.Children = append(root.Children, neg...)
 	if len(neg) > 0 {
 		root.NegIdx = len(pos)
+	}
+
+	// Apply sequence-specific node properties
+	if err := seqNodeProps(root, seq, seq.Order != nil, orderYn); err != nil {
+		return nil, err
 	}
 
 	return root, nil
@@ -356,16 +439,16 @@ func buildSetTree(root *NodeT, termsT map[string]ParseTermT, r ParseRuleT, ruleN
 		return nil, err
 	}
 
-	// Apply set-specific node properties
-	if err := setNodeProps(root, set, set.Match != nil, ruleNode); err != nil {
-		return nil, err
-	}
-
 	// Order positive first, then negatives
 	root.Children = append(root.Children, pos...)
 	root.Children = append(root.Children, neg...)
 	if len(neg) > 0 {
 		root.NegIdx = len(pos)
+	}
+
+	// Apply set-specific node properties
+	if err := setNodeProps(root, set, set.Match != nil, ruleNode); err != nil {
+		return nil, err
 	}
 
 	return root, nil
@@ -375,9 +458,6 @@ func buildSetTree(root *NodeT, termsT map[string]ParseTermT, r ParseRuleT, ruleN
 // in a single pass. The boolean flags specify whether each slice
 // is being treated as negated or not.
 func buildChildrenGroups(root *NodeT, termsT map[string]ParseTermT, matches, negates []ParseTermT, orderYn, negateYn *yaml.Node, termsY map[string]*yaml.Node) (pos []any, neg []any, err error) {
-
-	pos = []any{}
-	neg = []any{}
 
 	if len(matches) > 0 {
 
@@ -440,49 +520,68 @@ func buildChildren(parent *NodeT, tm map[string]ParseTermT, terms []ParseTermT, 
 	return children, nil
 }
 
-func nodeFromTerm(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, parentNegate bool, yn *yaml.Node, termsY map[string]*yaml.Node) (any, error) {
+func nodeFromSeq(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, yn *yaml.Node, termsY map[string]*yaml.Node) (node *NodeT, err error) {
 
-	var (
-		node *NodeT
-		opts *NegateOptsT
-		n    *yaml.Node
-		err  error
-		ok   bool
-	)
+	n, ok := findChild(yn, docSeq)
+	if !ok {
+		n = yn
+	}
+
+	node, err = buildSequenceNode(parent, termsT, term.Sequence, n, termsY)
+	if err != nil {
+		return
+	}
+
+	if term.NegateOpts == nil {
+		return
+	}
+
+	opts, err := negateOpts(term)
+	if err != nil {
+		return
+	}
+	node.Metadata.NegateOpts = opts
+
+	return
+}
+
+func nodeFromSet(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, yn *yaml.Node, termsY map[string]*yaml.Node) (node *NodeT, err error) {
+
+	n, ok := findChild(yn, docSet)
+	if !ok {
+		n = yn
+	}
+
+	node, err = buildSetNode(parent, termsT, term.Set, n, termsY)
+	if err != nil {
+		return
+	}
+
+	if term.NegateOpts == nil {
+		return
+	}
+
+	opts, err := negateOpts(term)
+	if err != nil {
+		return
+	}
+	node.Metadata.NegateOpts = opts
+
+	return
+}
+
+func nodeFromTerm(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, parentNegate bool, yn *yaml.Node, termsY map[string]*yaml.Node) (v any, err error) {
 
 	switch {
 	case term.Sequence != nil:
+		v, err = nodeFromSeq(parent, termsT, term, yn, termsY)
 
-		if n, ok = findChild(yn, docSeq); !ok {
-			n = yn
-		}
-
-		if node, err = buildSequenceNode(parent, termsT, term.Sequence, n, termsY); err != nil {
-			return nil, err
-		}
-
-		if term.NegateOpts != nil {
-			if opts, err = negateOpts(term); err != nil {
-				return nil, err
-			}
-			node.Metadata.NegateOpts = opts
-		}
 	case term.Set != nil:
+		v, err = nodeFromSet(parent, termsT, term, yn, termsY)
 
-		if n, ok = findChild(yn, docSet); !ok {
-			n = yn
-		}
+	case term.PromQL != nil:
+		return nodeFromProm(parent, term, yn)
 
-		if node, err = buildSetNode(parent, termsT, term.Set, n, termsY); err != nil {
-			return nil, err
-		}
-
-		if term.NegateOpts != nil {
-			if opts, err = negateOpts(term); err != nil {
-				return nil, err
-			}
-			node.Metadata.NegateOpts = opts
-		}
 	case term.StrValue != "" || term.JqValue != "" || term.RegexValue != "":
 		return parseValue(term, parentNegate)
 
@@ -491,7 +590,7 @@ func nodeFromTerm(parent *NodeT, termsT map[string]ParseTermT, term ParseTermT, 
 		return nil, parent.WrapError(ErrTermNotFound)
 	}
 
-	return node, nil
+	return
 }
 
 func extractTerms(terms []ParseExtractT) ([]ExtractT, error) {
@@ -546,16 +645,17 @@ func buildSequenceNode(parent *NodeT, termsT map[string]ParseTermT, seq *ParseSe
 		return nil, err
 	}
 
-	// Apply sequence-specific node properties
-	if err := seqNodeProps(node, seq, seq.Order != nil, yn); err != nil {
-		return nil, err
-	}
-
 	node.Children = append(node.Children, pos...)
 	node.Children = append(node.Children, neg...)
 	if len(neg) > 0 {
 		node.NegIdx = len(pos)
 	}
+
+	// Apply sequence-specific node properties
+	if err := seqNodeProps(node, seq, seq.Order != nil, yn); err != nil {
+		return nil, err
+	}
+
 	return node, nil
 }
 
@@ -570,16 +670,17 @@ func buildSetNode(parent *NodeT, termsT map[string]ParseTermT, set *ParseSetT, y
 		return nil, err
 	}
 
-	// Apply set-specific node properties
-	if err := setNodeProps(node, set, set.Match != nil, yn); err != nil {
-		return nil, err
-	}
-
 	node.Children = append(node.Children, pos...)
 	node.Children = append(node.Children, neg...)
 	if len(neg) > 0 {
 		node.NegIdx = len(pos)
 	}
+
+	// Apply set-specific node properties
+	if err := setNodeProps(node, set, set.Match != nil, yn); err != nil {
+		return nil, err
+	}
+
 	return node, nil
 }
 
@@ -606,6 +707,51 @@ func buildPosNegChildren(node *NodeT, termsT map[string]ParseTermT, matches, neg
 	}
 
 	return pos, neg, nil
+}
+
+func nodeFromProm(parent *NodeT, term ParseTermT, yn *yaml.Node) (*NodeT, error) {
+
+	var interval *time.Duration
+	if term.PromQL.Interval != "" {
+		dur, err := time.ParseDuration(term.PromQL.Interval)
+		if err != nil {
+			return nil, err
+		}
+		interval = &dur
+	}
+
+	var forDuration *time.Duration
+	if term.PromQL.For != "" {
+		dur, err := time.ParseDuration(term.PromQL.For)
+		if err != nil {
+			return nil, err
+		}
+		forDuration = &dur
+	}
+
+	if err := PromQLValidator(term.PromQL.Expr); err != nil {
+		return nil, err
+	}
+
+	node, err := initNode(parent.Metadata.RuleId, parent.Metadata.RuleHash, parent.Metadata.CreId, yn)
+	if err != nil {
+		return nil, parent.WrapError(err)
+	}
+
+	node.Metadata.Type = schema.NodeTypePromQL
+
+	// Propagate the event
+	if term.PromQL.Event != nil {
+		node.Metadata.Event = newEvent(term.PromQL.Event)
+	}
+
+	node.Children = append(node.Children, &PromQLT{
+		Expr:     term.PromQL.Expr,
+		For:      forDuration,
+		Interval: interval,
+	})
+
+	return node, nil
 }
 
 func parseValue(term ParseTermT, negate bool) (*MatcherT, error) {

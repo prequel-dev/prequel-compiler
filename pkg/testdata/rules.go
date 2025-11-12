@@ -906,8 +906,6 @@ rules:
       generation: 1
     rule:
       set:
-        event:
-          source: kafka
         correlations:
           - hostname
         match:
@@ -929,8 +927,6 @@ rules:
       generation: 1
     rule:
       set:
-        event:
-          source: kafka
         correlations:
           - hostname
         match:
@@ -1084,4 +1080,29 @@ rules:
           source: kafka
         match:
           - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestSuccessSimplePromQL = `
+rules:
+  - cre:
+      id: TestSuccessSimplePromQL
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 50s
+        match:
+          - promql:
+              event:
+                source: cre.metrics
+                origin: true
+              expr: 'sum(rate(http_requests_total[5m])) by (service)'
+              interval: 10s
+          - set:
+              event:
+                source: kafka
+              match:
+                - regex: "io.vertx.core.VertxException: Thread blocked"
 `

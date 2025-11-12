@@ -202,6 +202,7 @@ func newMatchTerm(field parser.FieldT) (AstFieldT, error) {
 	}
 
 	return t, nil
+
 }
 
 func newNegateTerm(field parser.FieldT, anchors uint32) (AstFieldT, error) {

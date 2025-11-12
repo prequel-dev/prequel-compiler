@@ -69,6 +69,10 @@ func TestAstSuccess(t *testing.T) {
 			rule:              testdata.TestSuccessSimpleExtraction,
 			expectedNodeTypes: []string{"machine_seq", "log_seq"},
 		},
+		"Success_PromQLMetric": {
+			rule:              testdata.TestSuccessSimplePromQL,
+			expectedNodeTypes: []string{"machine_set", "promql", "log_set"},
+		},
 	}
 
 	for name, test := range tests {
@@ -172,7 +176,7 @@ func TestAstFail(t *testing.T) {
 		"Fail_TermsSemanticError4": {
 			rule: testdata.TestFailTermsSemanticError4,
 			err:  ErrInvalidEventType,
-			line: 16,
+			line: 14,
 			col:  11,
 		},
 		"Fail_TermsSemanticError5": {
