@@ -185,6 +185,12 @@ func TestAstFail(t *testing.T) {
 			line: 11,
 			col:  9,
 		},
+		"Fail_MultipleOrigin": {
+			rule: testdata.TestFailMultipleOrigin,
+			err:  ErrMultipleOrigin,
+			line: 11,
+			col:  17,
+		},
 	}
 
 	for name, test := range tests {

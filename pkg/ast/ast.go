@@ -25,6 +25,7 @@ var (
 	ErrRootNodeWithoutEventSrc = errors.New("root node has no event source")
 	ErrInvalidWindow           = errors.New("invalid window")
 	ErrMissingOrigin           = errors.New("missing origin event")
+	ErrMultipleOrigin          = errors.New("multiple origin events")
 	ErrInvalidAnchor           = errors.New("invalid negate anchor")
 	ErrNoTermIdx               = errors.New("no term idx")
 )
@@ -87,14 +88,14 @@ type AstEventT struct {
 type builderT struct {
 	CurrentNodeId uint32
 	CurrentDepth  uint32
-	HasOrigin     bool
+	OriginCnt     int
 }
 
 func NewBuilder() *builderT {
 	return &builderT{
 		CurrentNodeId: uint32(0),
 		CurrentDepth:  uint32(0),
-		HasOrigin:     false,
+		OriginCnt:     0,
 	}
 }
 
@@ -140,8 +141,11 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 			return nil, err
 		}
 
-		if !rb.HasOrigin {
+		switch {
+		case rb.OriginCnt == 0:
 			return nil, parserNode.WrapError(ErrMissingOrigin)
+		case rb.OriginCnt > 1:
+			return nil, parserNode.WrapError(ErrMultipleOrigin)
 		}
 
 		ast.Nodes = append(ast.Nodes, rule)
@@ -235,7 +239,7 @@ func (b *builderT) buildMatcherChildren(parserNode *parser.NodeT, machineAddress
 	}
 
 	// Implied that the root node has an origin event
-	b.HasOrigin = true
+	b.OriginCnt++
 	parserNode.Metadata.Event.Origin = true
 
 	err = b.descendTree(func() error {
@@ -316,7 +320,7 @@ func (b *builderT) buildMachineChildren(parserNode *parser.NodeT, machineAddress
 		// If the child has an event/data source, then it is not a state machine. Build it via buildMatcherNodes
 
 		if parserChildNode.Metadata.Event.Origin {
-			b.HasOrigin = true
+			b.OriginCnt++
 		}
 
 		if parserChildNode.Metadata.Event.Source == "" {

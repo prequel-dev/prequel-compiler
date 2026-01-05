@@ -1106,3 +1106,29 @@ rules:
               match:
                 - regex: "io.vertx.core.VertxException: Thread blocked"
 `
+
+var TestFailMultipleOrigin = `
+rules:
+  - cre:
+      id: TestFailMultipleOrigin
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnB3S"
+      hash: "rdJLgqYgkEp8jg8Qks1qqq"
+      generation: 1
+    rule:
+      set:
+        window: 50s
+        match:
+          - promql:
+              event:
+                source: cre.metrics
+                origin: true
+              expr: 'sum(rate(http_requests_total[5m])) by (service)'
+              interval: 10s
+          - set:
+              event:
+                source: kafka
+                origin: true
+              match:
+                - regex: "io.vertx.core.VertxException: Thread blocked"
+`
