@@ -41,9 +41,6 @@ func (b *builderT) buildPromQLNode(parserNode *parser.NodeT, machineAddress *Ast
 	}
 
 	if parserNode.Metadata.Event != nil {
-		if parserNode.Metadata.Event.Origin {
-			b.HasOrigin = true
-		}
 		pn.Event = &AstEventT{
 			Source: parserNode.Metadata.Event.Source,
 			Origin: parserNode.Metadata.Event.Origin,
