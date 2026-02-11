@@ -33,6 +33,9 @@ func gatherNodeAddresses(node *AstNodeT, out *[]string) {
 	}
 
 	*out = append(*out, node.Metadata.Address.String())
+	for _, child := range node.Children {
+		gatherNodeAddresses(child, out)
+	}
 }
 
 func TestAstSuccess(t *testing.T) {
@@ -72,6 +75,14 @@ func TestAstSuccess(t *testing.T) {
 		"Success_PromQLMetric": {
 			rule:              testdata.TestSuccessSimplePromQL,
 			expectedNodeTypes: []string{"machine_set", "promql", "log_set"},
+		},
+		"Success_ChildScript": {
+			rule:              testdata.TestSuccessChildScript,
+			expectedNodeTypes: []string{"machine_seq", "script", "log_seq", "log_set"},
+		},
+		"Success_ChildScriptMultipleInputs": {
+			rule:              testdata.TestSuccessChildScriptMultipleInputs,
+			expectedNodeTypes: []string{"machine_set", "script", "machine_seq", "log_seq", "log_set"},
 		},
 	}
 

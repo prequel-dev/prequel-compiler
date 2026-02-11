@@ -5,6 +5,8 @@ import (
 )
 
 // Note that we prefer lower camel case like Kubernetes
+// Also, have to keep the JSON tags although we are using YAML.
+// The hash function uses JSON serialization, so the JSON tags are required to ensure consistent field names for hashing.
 
 const (
 	docRules   = "rules"
@@ -92,19 +94,6 @@ type ParseNegateOptsT struct {
 	Absolute bool   `yaml:"absolute,omitempty"`
 }
 
-type ParseTermT struct {
-	Field      string            `yaml:"field,omitempty"`
-	StrValue   string            `yaml:"value,omitempty"`
-	JqValue    string            `yaml:"jq,omitempty"`
-	RegexValue string            `yaml:"regex,omitempty"`
-	Count      int               `yaml:"count,omitempty"`
-	Set        *ParseSetT        `yaml:"set,omitempty"`
-	Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
-	NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
-	PromQL     *ParsePromQL      `yaml:"promql,omitempty"`
-	Extract    []ParseExtractT   `yaml:"extract,omitempty"`
-}
-
 type ParseSetT struct {
 	Window       string       `yaml:"window,omitempty"`
 	Correlations []string     `yaml:"correlations,omitempty"`
@@ -126,23 +115,55 @@ type ParsePromQL struct {
 	Event    *ParseEventT `yaml:"event,omitempty"`
 }
 
+type ParseScriptT struct {
+	Code     string      `yaml:"code"`
+	Language string      `yaml:"language,omitempty"` // Assumes 'lua' if empty
+	Timeout  string      `yaml:"timeout,omitempty"`  // Uses default if empty; expects duration string
+	Input    *ParseTermT `yaml:"input"`              // Required input
+}
+
+type ParseEventT struct {
+	Source string `yaml:"source"`
+	Origin bool   `yaml:"origin,omitempty" json:"origin,omitempty"`
+}
+
+type ParseTermT struct {
+	Field      string            `yaml:"field,omitempty"`
+	StrValue   string            `yaml:"value,omitempty"`
+	JqValue    string            `yaml:"jq,omitempty"`
+	RegexValue string            `yaml:"regex,omitempty"`
+	Count      int               `yaml:"count,omitempty"`
+	Set        *ParseSetT        `yaml:"set,omitempty"`
+	Sequence   *ParseSequenceT   `yaml:"sequence,omitempty"`
+	NegateOpts *ParseNegateOptsT `yaml:",inline,omitempty"`
+	PromQL     *ParsePromQL      `yaml:"promql,omitempty"`
+	Script     *ParseScriptT     `yaml:"script,omitempty"`
+	Extract    []ParseExtractT   `yaml:"extract,omitempty"`
+}
+
 func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
+
+	// Try to unmarshal as a raw string first.
+	// If that fails, unmarshal as a struct.
+	// This allows for a shorthand syntax for simple match terms.
 	var str string
 	if err := unmarshal(&str); err == nil {
 		o.StrValue = str
 		return nil
 	}
+
 	var temp struct {
-		Field       string            `yaml:"field,omitempty"`
-		StrValue    string            `yaml:"value,omitempty"`
-		JqValue     string            `yaml:"jq,omitempty"`
-		RegexValue  string            `yaml:"regex,omitempty"`
-		Count       int               `yaml:"count,omitempty"`
-		Set         *ParseSetT        `yaml:"set,omitempty"`
-		Sequence    *ParseSequenceT   `yaml:"sequence,omitempty"`
-		NegateOpts  *ParseNegateOptsT `yaml:",inline,omitempty"`
-		ParsePromQL *ParsePromQL      `yaml:"promql,omitempty"`
-		Extract     []ParseExtractT   `yaml:"extract,omitempty"`
+		Field       string            `yaml:"field"`
+		StrValue    string            `yaml:"value"`
+		JqValue     string            `yaml:"jq"`
+		RegexValue  string            `yaml:"regex"`
+		Count       int               `yaml:"count"`
+		Set         *ParseSetT        `yaml:"set"`
+		Sequence    *ParseSequenceT   `yaml:"sequence"`
+		NegateOpts  *ParseNegateOptsT `yaml:",inline"`
+		ParsePromQL *ParsePromQL      `yaml:"promql"`
+		Script      *ParseScriptT     `yaml:"script"`
+		Extract     []ParseExtractT   `yaml:"extract"`
 	}
 	if err := unmarshal(&temp); err != nil {
 		return err
@@ -156,20 +177,9 @@ func (o *ParseTermT) UnmarshalYAML(unmarshal func(any) error) error {
 	o.Sequence = temp.Sequence
 	o.NegateOpts = temp.NegateOpts
 	o.PromQL = temp.ParsePromQL
+	o.Script = temp.Script
 	o.Extract = temp.Extract
 	return nil
-}
-
-type ParseEventT struct {
-	Source string `yaml:"source"`
-	Origin bool   `yaml:"origin,omitempty" json:"origin,omitempty"`
-}
-
-type RulesT struct {
-	Rules  []ParseRuleT          `yaml:"rules"`
-	Root   *yaml.Node            `yaml:"-"`
-	TermsT map[string]ParseTermT `yaml:"terms,omitempty"`
-	TermsY map[string]*yaml.Node `yaml:"-"`
 }
 
 func RootNode(data []byte) (*yaml.Node, error) {
@@ -180,21 +190,25 @@ func RootNode(data []byte) (*yaml.Node, error) {
 	return &root, nil
 }
 
-func _parse(data []byte) (RulesT, *yaml.Node, error) {
+type RulesT struct {
+	Rules  []ParseRuleT          `yaml:"rules"`
+	Root   *yaml.Node            `yaml:"-"`
+	TermsT map[string]ParseTermT `yaml:"terms,omitempty"`
+	TermsY map[string]*yaml.Node `yaml:"-"`
+}
 
-	var (
-		root  yaml.Node
-		rules RulesT
-		err   error
-	)
+func _parse(data []byte) (*RulesT, *yaml.Node, error) {
 
-	if err = yaml.Unmarshal(data, &root); err != nil {
-		return RulesT{}, nil, err
+	root, err := RootNode(data)
+	if err != nil {
+		return nil, nil, err
 	}
 
+	var rules RulesT
 	if err := root.Decode(&rules); err != nil {
-		return RulesT{}, nil, err
+		return nil, nil, err
+
 	}
 
-	return rules, &root, nil
+	return &rules, root, nil
 }

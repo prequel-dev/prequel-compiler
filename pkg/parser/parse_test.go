@@ -75,6 +75,16 @@ func TestParseSuccess(t *testing.T) {
 			expectedNodeTypes:  []string{"machine_set", "promql", "log_set"},
 			expectedNegIndexes: []int{-1, -1, -1},
 		},
+		"Success_ChildScript": {
+			rule:               testdata.TestSuccessChildScript,
+			expectedNodeTypes:  []string{"machine_seq", "script", "log_seq", "log_set"},
+			expectedNegIndexes: []int{-1, -1, -1, -1},
+		},
+		"Success_ChildScriptMultipleInputs": {
+			rule:               testdata.TestSuccessChildScriptMultipleInputs,
+			expectedNodeTypes:  []string{"machine_set", "script", "machine_seq", "log_seq", "log_set"},
+			expectedNegIndexes: []int{-1, -1, -1, -1, -1},
+		},
 	}
 
 	for name, test := range tests {
@@ -217,6 +227,18 @@ func TestParseFail(t *testing.T) {
 			col:  7,
 			err:  ErrInvalidRuleHash,
 		},
+		"Fail_ScriptRoot": {
+			rule: testdata.TestFailScriptRoot,
+			line: 10,
+			col:  7,
+			err:  ErrNotSupported,
+		},
+		"Fail_ScriptNoInput": {
+			rule: testdata.TestFailScriptNoInput,
+			line: 11,
+			col:  9,
+			err:  ErrMissingInput,
+		},
 	}
 
 	for name, test := range tests {
@@ -243,6 +265,127 @@ func TestParseFail(t *testing.T) {
 				t.Errorf("Expected wrapped pqerr error %v, got %v", test.err, err)
 			}
 		})
+	}
+}
+
+const stableRuleYaml = `
+rules:
+  - cre:
+      id: PREQUEL-2026-0004
+      severity: 3
+      title: ArgoCD Excessive Syncs
+      category: argocd-problems
+      author: Prequel
+      description: |
+        ArgoCD Reconciliation Storm
+      tags:
+        - argocd
+        - sync-loop
+        - prequel-v0.14+
+      mitigation:
+        Remove "CreateNamespace=true" from applications involved in the sync loop reconciliation storm.
+      impact: |
+        The ArgoCD applications are in a sync loop, which means that they are being synced more than once per minute. This increases the load on the ArgoCD server and the Kubernetes cluster.
+      mitigationScore: 3
+      impactScore: 4
+      references:
+        - https://github.com/argoproj/argo-cd/issues/14666#issuecomment-1715538502
+        - https://argo-cd.readthedocs.io/en/stable/operator-manual/reconcile/
+      applications:
+        - name: "argocd"
+          processName: "argocd-application-controller"
+          processPath: "/app/argocd/argocd-application-controller"
+          containerName: "argocd-application-controller"
+          imageUrl: "quay.io/argoproj/argocd:v2.7.5"
+          repoUrl: "https://github.com/argoproj/argo-cd"
+
+    metadata:
+      kind: custom
+      id: NRdyR6FoTTsziQRVrxFMv5
+      gen: 1
+    rule:
+      set:
+        event:
+          source: cre.kubernetes
+        correlations:
+          - appNamespace
+          - appName
+        window: 1200s
+        match:
+          - jq: |
+              (.message | test("Initiated automated sync to '.*'"))
+              and (.source.component == "argocd-application-controller")
+            extract:
+              - name: appNamespace
+                jq: .involvedObject.namespace
+              - name: appName
+                jq: .involvedObject.name
+            count: 3
+          - jq: |
+              (.message | test("(Partial s|S)ync operation to .* succeeded"))
+              and (.source.component == "argocd-application-controller")
+            extract:
+              - name: appNamespace
+                jq: .involvedObject.namespace
+              - name: appName
+                jq: .involvedObject.name
+            count: 3
+          - jq: |
+              (.message | test("Updated sync status: Synced -> OutOfSync"))
+              and (.source.component == "argocd-application-controller")
+            extract:
+              - name: appNamespace
+                jq: .involvedObject.namespace
+              - name: appName
+                jq: .involvedObject.name
+            count: 3
+          - jq: |
+              (.message | test("Updated sync status: OutOfSync -> Synced"))
+              and (.source.component == "argocd-application-controller")
+            extract:
+              - name: appNamespace
+                jq: .involvedObject.namespace
+              - name: appName
+                jq: .involvedObject.name
+            count: 3
+`
+
+func TestStableHashStability(t *testing.T) {
+	// Use a stable rule from above for test.
+	ruleYaml := stableRuleYaml
+
+	// Unmarshal YAML to ParseRuleT
+	rules, err := Unmarshal([]byte(ruleYaml))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal rule: %v", err)
+	}
+	if len(rules.Rules) == 0 {
+		t.Fatalf("No rules found in testdata")
+	}
+	rule := rules.Rules[0]
+
+	// Compute stable hash
+	hash1, err := StableHash(rule)
+	if err != nil {
+		t.Fatalf("Failed to compute stable hash: %v", err)
+	}
+
+	// Modify non-semantic metadata fields
+	rule.Metadata.Version = "v2.0.0"
+	rule.Metadata.Gen = 42
+
+	// Compute stable hash again
+	hash2, err := StableHash(rule)
+	if err != nil {
+		t.Fatalf("Failed to compute stable hash after metadata change: %v", err)
+	}
+
+	if hash1 != hash2 {
+		t.Errorf("StableHash changed after non-semantic metadata update: %s != %s", hash1, hash2)
+	}
+
+	if hash1 != "QFr5UWZMni8KYe4B7FkYg64p8CaRr6yeuynwDfPXjDj" {
+		t.Errorf("StableHash value changed unexpectedly: got %s, want %s", hash1, "QFr5UWZMni8KYe4B7FkYg64p8CaRr6yeuynwDfPXjDj")
 	}
 }
 

@@ -106,12 +106,9 @@ func (b *builderT) descendTree(fn func() error) error {
 }
 
 func Build(data []byte) (*AstT, error) {
-	var (
-		parseTree *parser.TreeT
-		err       error
-	)
 
-	if parseTree, err = parser.Parse(data); err != nil {
+	parseTree, err := parser.Parse(data)
+	if err != nil {
 		log.Error().Any("err", err).Msg("Parser failed")
 		return nil, err
 	}
@@ -157,39 +154,52 @@ func BuildTree(tree *parser.TreeT) (*AstT, error) {
 func (b *builderT) buildTree(parserNode *parser.NodeT, parentMachineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
 
 	var (
-		machineMatchNode *AstNodeT
-		matchNode        *AstNodeT
-		children         = make([]*AstNodeT, 0)
-		machineAddress   = b.newAstNodeAddress(parserNode.Metadata.RuleHash, parserNode.Metadata.Type.String(), termIdx)
-		err              error
+		machineAddress = b.newAstNodeAddress(parserNode.Metadata.RuleHash, parserNode.Metadata.Type.String(), termIdx)
 	)
 
-	// Build children (either matcher children or nested machines)
-	if parserNode.IsMatcherNode() {
-		if matchNode, err = b.buildMatcherChildren(parserNode, machineAddress, termIdx); err != nil {
-			return nil, err
-		}
-		children = append(children, matchNode)
-	} else if parserNode.IsPromNode() {
-		if matchNode, err = b.buildPromQLNode(parserNode, machineAddress, termIdx); err != nil {
-			return nil, err
-		}
-		children = append(children, matchNode)
-
-	} else {
-		if children, err = b.buildMachineChildren(parserNode, machineAddress); err != nil {
-			return nil, err
-		}
+	children, err := b.buildChildrenNodes(parserNode, machineAddress, termIdx)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build state machine after recursively building children
-	if machineMatchNode, err = b.buildStateMachine(parserNode, parentMachineAddress, machineAddress, children); err != nil {
+	machineMatchNode, err := b.buildStateMachine(parserNode, parentMachineAddress, machineAddress, children)
+	if err != nil {
 		return nil, err
 	}
 
 	machineMatchNode.Children = append(machineMatchNode.Children, children...)
 
 	return machineMatchNode, nil
+}
+
+func (b *builderT) buildChildrenNodes(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (children []*AstNodeT, err error) {
+
+	leaf, err := b.buildLeafChild(parserNode, machineAddress, termIdx)
+
+	switch {
+	case err != nil:
+		return nil, err
+	case leaf != nil:
+		return []*AstNodeT{leaf}, nil
+	case parserNode.IsScriptNode():
+		children, err = b.buildScriptChildren(parserNode, machineAddress)
+	default:
+		children, err = b.buildMachineChildren(parserNode, machineAddress)
+	}
+
+	return children, err
+}
+
+func (b *builderT) buildLeafChild(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (leaf *AstNodeT, err error) {
+
+	switch {
+	case parserNode.IsMatcherNode():
+		leaf, err = b.buildMatcherChild(parserNode, machineAddress, termIdx)
+	case parserNode.IsPromNode():
+		leaf, err = b.buildPromQLNode(parserNode, machineAddress, termIdx)
+	}
+	return
 }
 
 func (b *builderT) newAstNodeAddress(ruleHash, name string, termIdx *uint32) *AstNodeAddressT {
@@ -220,7 +230,7 @@ func newAstNode(parserNode *parser.NodeT, typ schema.NodeTypeT, scope string, pa
 	}
 }
 
-func (b *builderT) buildMatcherChildren(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
+func (b *builderT) buildMatcherChild(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
 
 	var (
 		matchNode *AstNodeT
@@ -360,7 +370,7 @@ func addNegateOpts(assert *AstNodeT, negateOpts *parser.NegateOptsT) {
 	}
 }
 
-func (b *builderT) buildStateMachine(parserNode *parser.NodeT, parentMachineAddress *AstNodeAddressT, machineAddress *AstNodeAddressT, children []*AstNodeT) (*AstNodeT, error) {
+func (b *builderT) buildStateMachine(parserNode *parser.NodeT, parentMachineAddress, machineAddress *AstNodeAddressT, children []*AstNodeT) (*AstNodeT, error) {
 
 	switch parserNode.Metadata.Type {
 	case schema.NodeTypeSeq, schema.NodeTypeLogSeq:
@@ -371,6 +381,9 @@ func (b *builderT) buildStateMachine(parserNode *parser.NodeT, parentMachineAddr
 			return nil, parserNode.WrapError(ErrInvalidWindow)
 		}
 	case schema.NodeTypeSet, schema.NodeTypeLogSet, schema.NodeTypePromQL:
+	case schema.NodeTypeScript:
+		return b.buildScriptNode(parserNode, parentMachineAddress, machineAddress)
+
 	default:
 		log.Error().
 			Any("address", machineAddress).
