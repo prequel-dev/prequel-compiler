@@ -15,6 +15,7 @@ const (
 	NodeTypeLogSeq NodeTypeT = "log_seq"
 	NodeTypeLogSet NodeTypeT = "log_set"
 	NodeTypePromQL NodeTypeT = "promql"
+	NodeTypeScript NodeTypeT = "script"
 )
 
 func (t NodeTypeT) String() string {

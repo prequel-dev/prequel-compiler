@@ -362,6 +362,104 @@ rules:
                 jq: ".field1"
 `
 
+// We currently do not support script at the root level.
+var TestFailScriptRoot = `
+rules:
+  - cre:
+      id: TestFailScriptRoot
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      script:
+       code: |
+         function process(ev)
+          print("Processing...")
+         end
+`
+
+// Script requires an input, so this should fail validation.
+var TestFailScriptNoInput = `
+rules:
+  - cre:
+      id: TestFailScriptNoInput
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        match:
+          - script:
+              code: "function process(ev) print(\"Processing...\") end"
+`
+
+var TestSuccessChildScript = `
+rules:
+  - cre:
+      id: TestSuccessChildScript
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      sequence:
+        window: 30s
+        order:
+          - script:
+              code: "function process(ev) print(\"Processing...\") end"
+              input:
+                sequence:
+                  window: 10s
+                  event:
+                    source: kafka
+                    origin: true
+                  order:
+                    - value: "term1"
+                    - value: "term2"
+          - set:
+              event:
+                source: kafka
+              match:
+                - value: "term2"
+`
+
+var TestSuccessChildScriptMultipleInputs = `
+---
+rules:
+  - cre:
+      id: TestSuccessChildScriptMultipleInputs
+    metadata:
+      id: J7uRQTGpGMyL1iFpssnBeS
+      hash: rdJLgqYgkEp8jg8Qks1qiq
+      generation: 1
+    rule:
+      set:
+        match:
+          - script:
+              code: function process(ev) print("Processing...") end
+              input:
+                sequence:
+                  window: 10s
+                  order:
+                    - sequence:
+                        event:
+                          source: kafka
+                          origin: true
+                        window: 10s
+                        order:
+                          - value: term1
+                          - value: term2
+                    - set:
+                        event:
+                          source: kafka
+                        window: 10s
+                        match:
+                          - value: term3
+                          - value: term4
+`
+
 /* Failure cases */
 var TestFailTypo = ` # Line 1 starts here
 rules:
