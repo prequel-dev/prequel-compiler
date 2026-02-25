@@ -460,6 +460,29 @@ rules:
                           - value: term4
 `
 
+var TestSuccessChildScriptPromQLInput = `
+rules:
+  - cre:
+      id: TestSuccessChildScriptPromQLInput
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnBeS"
+      hash: "rdJLgqYgkEp8jg8Qks1qiq"
+      generation: 1
+    rule:
+      set:
+        window: 30s
+        match:
+          - script:
+              code: "function process(ev) print(\"Processing...\") end"
+              input:
+                promql:
+                  event:
+                    source: cre.metrics
+                    origin: true
+                  expr: 'sum(rate(http_requests_total[5m])) by (service)'
+                  interval: 10s
+`
+
 /* Failure cases */
 var TestFailTypo = ` # Line 1 starts here
 rules:

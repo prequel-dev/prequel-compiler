@@ -84,6 +84,10 @@ func TestAstSuccess(t *testing.T) {
 			rule:              testdata.TestSuccessChildScriptMultipleInputs,
 			expectedNodeTypes: []string{"machine_set", "script", "machine_seq", "log_seq", "log_set"},
 		},
+		"Success_ChildScriptPromQLInput": {
+			rule:              testdata.TestSuccessChildScriptPromQLInput,
+			expectedNodeTypes: []string{"machine_set", "script", "promql"},
+		},
 	}
 
 	for name, test := range tests {
@@ -102,6 +106,10 @@ func TestAstSuccess(t *testing.T) {
 
 			if len(ast.Nodes) == 0 {
 				t.Fatalf("No nodes found in AST")
+			}
+
+			if err = validateTree(ast.Nodes[0]); err != nil {
+				t.Fatalf("Error validating tree: %v", err)
 			}
 
 			var actualNodes []string
@@ -272,4 +280,46 @@ func TestFailureExamples(t *testing.T) {
 			t.Fatalf("Expected error building rule %s", rule)
 		}
 	}
+}
+
+// Validate the following invariants on the tree:
+// 1. No duplicate addresses
+// 2. Root node has no parent address
+// 3. Node ids are unique
+// 4. Depth is consistent with distance from root
+
+func validateTree(node *AstNodeT) error {
+	if node == nil {
+		return fmt.Errorf("Root node is nil")
+	}
+
+	if node.Metadata.ParentAddress != nil {
+		return fmt.Errorf("Root node has parent address: %s", node.Metadata.ParentAddress.String())
+	}
+
+	return _validateTree(node, 0, make(map[uint32]struct{})) // start at depth 0 for root
+}
+
+func _validateTree(node *AstNodeT, depth uint32, ids map[uint32]struct{}) error {
+
+	if node == nil {
+		return nil
+	}
+
+	if node.Metadata.Address.Depth != depth {
+		return fmt.Errorf("Node %s has depth %d, expected %d", node.Metadata.Address.String(), node.Metadata.Address.Depth, depth)
+	}
+
+	if _, exists := ids[node.Metadata.Address.NodeId]; exists {
+		return fmt.Errorf("Duplicate node ID %d found", node.Metadata.Address.NodeId)
+	}
+	ids[node.Metadata.Address.NodeId] = struct{}{}
+
+	for _, child := range node.Children {
+		if err := _validateTree(child, depth+1, ids); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

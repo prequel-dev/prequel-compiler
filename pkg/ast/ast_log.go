@@ -152,6 +152,10 @@ func (b *builderT) doBuildLogMatcherNode(parserNode *parser.NodeT, machineAddres
 		Correlations: parserNode.Metadata.Correlations,
 	}
 
+	if parserNode.Metadata.Event.Origin {
+		b.OriginCnt++
+	}
+
 	return matchNode, nil
 }
 

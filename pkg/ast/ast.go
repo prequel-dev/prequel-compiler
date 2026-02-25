@@ -197,7 +197,7 @@ func (b *builderT) buildLeafChild(parserNode *parser.NodeT, machineAddress *AstN
 	case parserNode.IsMatcherNode():
 		leaf, err = b.buildMatcherChild(parserNode, machineAddress, termIdx)
 	case parserNode.IsPromNode():
-		leaf, err = b.buildPromQLNode(parserNode, machineAddress, termIdx)
+		leaf, err = b.buildPromQLChild(parserNode, machineAddress, termIdx)
 	}
 	return
 }
@@ -248,9 +248,11 @@ func (b *builderT) buildMatcherChild(parserNode *parser.NodeT, machineAddress *A
 		return nil, parserNode.WrapError(ErrInvalidEventType)
 	}
 
-	// Implied that the root node has an origin event
-	b.OriginCnt++
-	parserNode.Metadata.Event.Origin = true
+	// This appears to be a legacy hack to support rules that don't specify origin but have event sources.
+	// We should consider removing this and requiring explicit origin specification in the rules.
+	if b.CurrentDepth == 0 && !parserNode.Metadata.Event.Origin {
+		parserNode.Metadata.Event.Origin = true
+	}
 
 	err = b.descendTree(func() error {
 		if matchNode, err = b.buildMatcherNodes(parserNode, machineAddress, termIdx); err != nil {
@@ -328,10 +330,6 @@ func (b *builderT) buildMachineChildren(parserNode *parser.NodeT, machineAddress
 		}
 
 		// If the child has an event/data source, then it is not a state machine. Build it via buildMatcherNodes
-
-		if parserChildNode.Metadata.Event.Origin {
-			b.OriginCnt++
-		}
 
 		if parserChildNode.Metadata.Event.Source == "" {
 			log.Error().
