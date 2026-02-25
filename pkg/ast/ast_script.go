@@ -39,19 +39,25 @@ func (b *builderT) buildScriptChildren(parserNode *parser.NodeT, machineAddress 
 
 	leaf, err := b.buildLeafChild(parserChildNode, machineAddress, &termIdx)
 
+	var childList []*AstNodeT
+
 	switch {
 	case err != nil:
-		return nil, err
+		// fallthrough
 	case leaf != nil:
-		return []*AstNodeT{leaf}, nil
+		childList = []*AstNodeT{leaf}
 	default:
-		node, err := b.buildTree(parserChildNode, machineAddress, &termIdx)
-		if err != nil {
-			return nil, err
-		}
-
-		return []*AstNodeT{node}, nil
+		err = b.descendTree(func() error {
+			node, err := b.buildTree(parserChildNode, machineAddress, &termIdx)
+			if err != nil {
+				return err
+			}
+			childList = []*AstNodeT{node}
+			return nil
+		})
 	}
+
+	return childList, err
 }
 
 // Validate script definitions and build the script node.

@@ -15,6 +15,22 @@ type AstPromQL struct {
 	Event    *AstEventT
 }
 
+func (b *builderT) buildPromQLChild(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
+	var child *AstNodeT
+
+	err := b.descendTree(func() error {
+		node, err := b.buildPromQLNode(parserNode, machineAddress, termIdx)
+		if err != nil {
+			return err
+		}
+		child = node
+		return nil
+	})
+
+	return child, err
+
+}
+
 func (b *builderT) buildPromQLNode(parserNode *parser.NodeT, machineAddress *AstNodeAddressT, termIdx *uint32) (*AstNodeT, error) {
 
 	// Expects one child of type ParsePromQL
@@ -44,6 +60,9 @@ func (b *builderT) buildPromQLNode(parserNode *parser.NodeT, machineAddress *Ast
 		pn.Event = &AstEventT{
 			Source: parserNode.Metadata.Event.Source,
 			Origin: parserNode.Metadata.Event.Origin,
+		}
+		if parserNode.Metadata.Event.Origin {
+			b.OriginCnt++
 		}
 	}
 

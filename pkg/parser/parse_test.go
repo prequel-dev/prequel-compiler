@@ -85,6 +85,11 @@ func TestParseSuccess(t *testing.T) {
 			expectedNodeTypes:  []string{"machine_set", "script", "machine_seq", "log_seq", "log_set"},
 			expectedNegIndexes: []int{-1, -1, -1, -1, -1},
 		},
+		"Success_ChildScriptPromQLInput": {
+			rule:               testdata.TestSuccessChildScriptPromQLInput,
+			expectedNodeTypes:  []string{"machine_set", "script", "promql"},
+			expectedNegIndexes: []int{-1, -1, -1},
+		},
 	}
 
 	for name, test := range tests {
