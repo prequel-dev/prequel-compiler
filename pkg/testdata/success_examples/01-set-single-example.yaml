@@ -8,5 +8,6 @@ rules:
       set:
         event:
           source: kafka
+          origin: true
         match:
           - "foo(.+)bar"

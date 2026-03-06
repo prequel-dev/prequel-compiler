@@ -9,6 +9,7 @@ rules:
         window: 10s
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - value: "test"
           - regex: "foo(.+)bar"

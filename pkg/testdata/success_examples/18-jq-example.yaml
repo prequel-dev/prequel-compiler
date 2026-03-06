@@ -8,5 +8,6 @@ rules:
       set:
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - jq: "select(.event == \"worker_process_crash\" and .level == \"error\")"

@@ -2,65 +2,52 @@ package compiler
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/ast"
-	"github.com/prequel-dev/prequel-compiler/pkg/parser"
-	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	ErrUnsupportedMatcher = errors.New("unsupported matcher")
-	ErrUnsupportedScope   = errors.New("unsupported scope")
-	ErrInvalidMatcher     = errors.New("invalid matcher")
-)
-
-var (
-	defaultPlugin  = NewDefaultPlugin()
-	defaultRuntime = &NoopRuntime{}
 )
 
 type ObjsT []*ObjT
 
-type ObjTypeT string
+type ObjTypeT int
 
 const (
-	ObjTypeMatcher ObjTypeT = "match"
-	ObjTypeAssert  ObjTypeT = "assert"
+	ObjTypeMatcher ObjTypeT = iota
+	ObjTypeAssert
 )
 
 func (o ObjTypeT) String() string {
-	return string(o)
+	switch o {
+	case ObjTypeMatcher:
+		return "matcher"
+	case ObjTypeAssert:
+		return "assert"
+	default:
+		return "unknown"
+	}
 }
 
 type ObjT struct {
-	RuleId        string               `json:"rule_id"`
-	Address       *ast.AstNodeAddressT `json:"address"`
-	ParentAddress *ast.AstNodeAddressT `json:"parent_address"`
-	Scope         string               `json:"scope"`
-	AbstractType  schema.NodeTypeT     `json:"abstract_type"`
-	ObjectType    ObjTypeT             `json:"object_type"`
-	Event         ast.AstEventT        `json:"event"`
-	Object        any                  `json:"object"`
-	Cb            CallbackT            `json:"cb"`
+	Address       ast.AstNodeAddressT
+	ParentAddress *ast.AstNodeAddressT
+	Scope         ast.AstScopeT
+	AbstractType  ast.AstNodeType
+	ObjectType    ObjTypeT
+	Event         ast.AstEventT
+	Object        any
+	Cb            CallbackT
 }
 
 type compilerOptsT struct {
-	debugTree string
-	runtime   RuntimeI
-	plugins   map[string]PluginI
+	runtime RuntimeI
+	plugins map[ast.AstScopeT]PluginI
 }
 
 type CompilerOptT func(*compilerOptsT)
 type PluginI interface {
-	Compile(runtime RuntimeI, node *ast.AstNodeT) (ObjsT, error)
-}
-
-func WithDebugTree(path string) CompilerOptT {
-	return func(o *compilerOptsT) {
-		o.debugTree = path
-	}
+	Compile(runtime RuntimeI, node ast.AstNode) (ObjsT, error)
 }
 
 func WithRuntime(cb RuntimeI) CompilerOptT {
@@ -69,15 +56,16 @@ func WithRuntime(cb RuntimeI) CompilerOptT {
 	}
 }
 
-func WithPlugin(scope string, plugin PluginI) CompilerOptT {
+func WithPlugin(scope ast.AstScopeT, plugin PluginI) CompilerOptT {
 	return func(o *compilerOptsT) {
 		o.plugins[scope] = plugin
 	}
 }
 
 func parseOpts(opts []CompilerOptT) compilerOptsT {
+
 	o := compilerOptsT{
-		plugins: map[string]PluginI{schema.ScopeDefault: defaultPlugin},
+		plugins: map[ast.AstScopeT]PluginI{ast.AstScopeNode: defaultPlugin},
 		runtime: defaultRuntime,
 	}
 	for _, opt := range opts {
@@ -86,28 +74,92 @@ func parseOpts(opts []CompilerOptT) compilerOptsT {
 	return o
 }
 
-func traverseTree(node *ast.AstNodeT, scope string, callback func(node *ast.AstNodeT) error) error {
-	for _, child := range node.Children {
-		if err := traverseTree(child, scope, callback); err != nil {
-			return err
-		}
+func Compile(data []byte, scope ast.AstScopeT, opts ...CompilerOptT) (ObjsT, error) {
+
+	rules, err := ast.ParseRules(data)
+	if err != nil {
+		return nil, err
 	}
-	return callback(node)
+
+	return CompileRules(rules, scope, opts...)
 }
 
-func NewObj(node *ast.AstNodeT, objType ObjTypeT) *ObjT {
+func CompileRule(rule ast.AstRuleT, scope ast.AstScopeT, opts ...CompilerOptT) (ObjsT, error) {
+	o := parseOpts(opts)
+	return compileRule(o, rule, scope)
+}
+
+func CompileRules(rules []ast.AstRuleT, scope ast.AstScopeT, opts ...CompilerOptT) (ObjsT, error) {
+	o := parseOpts(opts)
+
+	var (
+		outObjs ObjsT
+		errList []error
+	)
+
+	for _, rule := range rules {
+		objs, err := compileRule(o, rule, scope)
+		if err != nil {
+			errList = append(errList, err)
+		} else {
+			outObjs = append(outObjs, objs...)
+		}
+	}
+
+	return outObjs, errors.Join(errList...)
+}
+
+func compileRule(o compilerOptsT, rule ast.AstRuleT, scope ast.AstScopeT) (ObjsT, error) {
+
+	var (
+		outObjs ObjsT
+	)
+
+	compile := func(node ast.AstNode, _ *ast.AstNegateOptsT) error {
+
+		if node.Scope() != scope {
+			return nil
+		}
+
+		plugin, ok := o.plugins[scope]
+		if !ok {
+			log.Error().Str("scope", scope.String()).Msg("No plugin found")
+			return fmt.Errorf("%w: %s", ErrUnsupportedScope, scope.String())
+		}
+
+		objs, err := plugin.Compile(o.runtime, node)
+		if err != nil {
+			return err
+		}
+
+		outObjs = append(outObjs, objs...)
+
+		return nil
+	}
+
+	if err := rule.Walk(compile); err != nil {
+		return nil, err
+	}
+
+	sortObjs(outObjs, ast.AstNodeTypeSeq)
+	sortObjs(outObjs, ast.AstNodeTypeSet)
+
+	return outObjs, nil
+}
+
+func NewObj(node ast.AstNode, objType ObjTypeT) *ObjT {
+
 	return &ObjT{
-		RuleId:        node.Metadata.RuleId,
-		Address:       node.Metadata.Address,
-		ParentAddress: node.Metadata.ParentAddress,
-		Scope:         node.Metadata.Scope,
-		AbstractType:  node.Metadata.Type,
+		Address:       node.Address(),
+		ParentAddress: node.Parent(),
+		Scope:         node.Scope(),
+		AbstractType:  node.Type(),
 		ObjectType:    objType,
 	}
 }
 
 // Should we sort by object type?
-func sortObjs(items []*ObjT, t schema.NodeTypeT) {
+func sortObjs(items []*ObjT, t ast.AstNodeType) {
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].AbstractType == t && items[j].AbstractType != t {
 			return true
@@ -117,112 +169,4 @@ func sortObjs(items []*ObjT, t schema.NodeTypeT) {
 		}
 		return false
 	})
-}
-
-func CompileTree(pt *parser.TreeT, scope string, opts ...CompilerOptT) (ObjsT, error) {
-
-	var (
-		err  error
-		o    = parseOpts(opts)
-		tree *ast.AstT
-	)
-
-	if tree, err = ast.BuildTree(pt); err != nil {
-		return nil, err
-	}
-
-	if o.debugTree != "" {
-		if err = ast.DrawTree(tree, o.debugTree); err != nil {
-			return nil, err
-		}
-	}
-
-	return compile(o, tree, scope)
-}
-
-func CompileAst(tree *ast.AstT, scope string, opts ...CompilerOptT) (ObjsT, error) {
-	var (
-		o = parseOpts(opts)
-	)
-
-	if o.debugTree != "" {
-		if err := ast.DrawTree(tree, o.debugTree); err != nil {
-			return nil, err
-		}
-	}
-
-	return compile(o, tree, scope)
-}
-
-func compile(o compilerOptsT, tree *ast.AstT, scope string) (ObjsT, error) {
-
-	var (
-		err     error
-		outObjs ObjsT
-	)
-
-	compile := func(node *ast.AstNodeT) error {
-
-		if node.Metadata.Scope != scope {
-			return nil
-		}
-
-		plugin, ok := o.plugins[scope]
-		if !ok {
-			log.Error().Str("scope", scope).Msg("No plugin found")
-			return ErrUnsupportedScope
-		}
-
-		objs, err := plugin.Compile(o.runtime, node)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("scope", scope).
-				Msg("Failed to compile")
-			return err
-		}
-
-		outObjs = append(outObjs, objs...)
-
-		return nil
-	}
-
-	for _, node := range tree.Nodes {
-		if err = traverseTree(node, scope, compile); err != nil {
-			return nil, err
-		}
-	}
-
-	sortObjs(outObjs, schema.NodeTypeSeq)
-	sortObjs(outObjs, schema.NodeTypeSet)
-
-	for _, obj := range outObjs {
-		log.Debug().
-			Str("abstract_type", obj.AbstractType.String()).
-			Str("abstract_address", obj.Address.String()).
-			Str("object_type", obj.ObjectType.String()).
-			Msg("Compiled object")
-	}
-
-	return outObjs, nil
-}
-
-func Compile(data []byte, scope string, opts ...CompilerOptT) (ObjsT, error) {
-	var (
-		tree *ast.AstT
-		o    = parseOpts(opts)
-		err  error
-	)
-
-	if tree, err = ast.Build(data); err != nil {
-		return nil, err
-	}
-
-	if o.debugTree != "" {
-		if err = ast.DrawTree(tree, o.debugTree); err != nil {
-			return nil, err
-		}
-	}
-
-	return compile(o, tree, scope)
 }

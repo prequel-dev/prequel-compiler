@@ -8,5 +8,6 @@ rules:
       set:
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - "[emerg] 1655#1655: still could not bind()"

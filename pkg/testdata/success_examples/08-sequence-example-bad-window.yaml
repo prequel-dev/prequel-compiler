@@ -8,6 +8,7 @@ rules:
       sequence:
         event:
           source: cre.log.kafka
+          origin: true
         window: 1s
         order:
           - regex: "foo(.+)bar"
