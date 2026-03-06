@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // version: 0.0.1

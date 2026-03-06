@@ -1,19 +1,11 @@
 package compiler
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/prequel-dev/prequel-compiler/pkg/ast"
-	"github.com/prequel-dev/prequel-compiler/pkg/schema"
 	"github.com/prequel-dev/prequel-logmatch/pkg/match"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	ErrUnsupportedNodeType  = errors.New("unsupported node type")
-	ErrUnsupportedEventType = errors.New("unsupported event type")
-	ErrSequenceSingleMatch  = errors.New("sequence with single match (use set instead)")
-	ErrNoFields             = errors.New("no fields")
 )
 
 func toLogResets(terms []ast.AstFieldT) []match.ResetT {
@@ -43,112 +35,92 @@ func toLogResets(terms []ast.AstFieldT) []match.ResetT {
 func toLogTerms(fields []ast.AstFieldT) []match.TermT {
 	terms := make([]match.TermT, 0, len(fields))
 	for _, field := range fields {
-		terms = append(terms, field.TermValue)
+		// match interface does not yet support explicit counts, do dupe.
+		// TODO: Revise when log matcher supports counts.
+		cnt := max(field.Count, 1)
+		for range cnt {
+			terms = append(terms, field.TermValue)
+		}
 	}
 	return terms
 }
 
-func ObjLogMatcher(runtime RuntimeI, node *ast.AstNodeT) (*ObjT, error) {
+func ObjLogMatcher(runtime RuntimeI, node *ast.AstMatchLeafT) (*ObjT, error) {
 	var (
-		obj = NewObj(node, ObjTypeMatcher)
-		lm  *ast.AstLogMatcherT
-		ok  bool
 		err error
+		obj = NewObj(node, ObjTypeMatcher)
 	)
 
-	if lm, ok = node.Object.(*ast.AstLogMatcherT); !ok {
-		log.Error().Interface("matcher", node.Object).Msg("Failed to compile log matcher")
-		return nil, ErrInvalidMatcher
-	}
-
-	obj.Event.Origin = lm.Event.Origin
-	obj.Event.Source = lm.Event.Source
+	obj.Event.Origin = node.Event.Origin
+	obj.Event.Source = node.Event.Source
 
 	params := MatchParamsT{
-		Address:       node.Metadata.Address,
-		ParentAddress: node.Metadata.ParentAddress,
-		Origin:        lm.Event.Origin,
+		Address:       node.Address(),
+		ParentAddress: node.Parent(),
+		Origin:        node.Event.Origin,
 	}
 
 	obj.Cb = runtime.NewCbMatch(params)
 
-	switch node.Metadata.Type {
-	case schema.NodeTypeLogSeq:
-		if obj.Object, err = makeLogSeqObjects(lm, node.Metadata.NegIdx); err != nil {
+	switch node.Type() {
+	case ast.AstNodeTypeLogSeq:
+		if obj.Object, err = makeLogSeqObjects(node); err != nil {
 			return nil, err
 		}
 
-	case schema.NodeTypeLogSet:
+	case ast.AstNodeTypeLogSet:
 
-		if obj.Object, err = makeLogSetObjects(lm, node.Metadata.NegIdx); err != nil {
+		if obj.Object, err = makeLogSetObjects(node); err != nil {
 			return nil, err
 		}
 
 	default:
-		log.Error().Type("node_type", node.Metadata.Type).Msg("Unsupported node type")
-		return nil, ErrUnsupportedNodeType
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedNodeType, node.Type())
 	}
 
 	return obj, nil
 }
 
-func makeLogSeqObjects(lm *ast.AstLogMatcherT, negIdx int) (any, error) {
+func makeLogSeqObjects(node *ast.AstMatchLeafT) (any, error) {
 
-	var (
-		obj any
-		err error
-	)
+	switch {
+	case len(node.Negate) > 0:
+		return match.NewInverseSeq(
+			node.Window.Nanoseconds(),
+			toLogTerms(node.Terms),
+			toLogResets(node.Negate),
+		)
 
-	if negIdx > 0 {
-		log.Trace().Any("terms", toLogTerms(lm.Match)).Msg("Creating inverse match sequence")
-		if obj, err = match.NewInverseSeq(lm.Window.Nanoseconds(), toLogTerms(lm.Match), toLogResets(lm.Negate)); err != nil {
-			log.Error().Err(err).Msg("Failed to create inverse match sequence")
-			return nil, err
-		}
-	} else {
-		if len(lm.Match) == 1 {
-			log.Error().Msg("Sequence with single match (use set instead)")
-			return nil, ErrSequenceSingleMatch
-		} else {
-			log.Debug().Any("terms", toLogTerms(lm.Match)).Msg("Creating match sequence")
-			if obj, err = match.NewMatchSeq(lm.Window.Nanoseconds(), toLogTerms(lm.Match)...); err != nil {
-				log.Error().Err(err).Msg("Failed to create match sequence")
-				return nil, err
-			}
-		}
+	// A sequence with a single term and no negation should be specified as a set,
+	// irregardless of the count. It is not a sequence of events, but a single event
+	// that may occur multiple times (on count > 1).
+	case len(node.Terms) == 1:
+		return nil, ErrSequenceSingleMatch
+
+	default:
+		return match.NewMatchSeq(node.Window.Nanoseconds(), toLogTerms(node.Terms)...)
 	}
-
-	return obj, nil
 }
 
-func makeLogSetObjects(lm *ast.AstLogMatcherT, negIdx int) (any, error) {
+func makeLogSetObjects(node *ast.AstMatchLeafT) (any, error) {
 
-	var (
-		err error
-		obj any
-	)
+	// Expand the terms before checking length as toLogs will
+	// expand terms with counts > 1 into multiple terms,
+	// which may affect whether we can use a single match or need a set.
+	logTrms := toLogTerms(node.Terms)
 
-	if negIdx > 0 {
-		log.Debug().Any("terms", toLogTerms(lm.Match)).Msg("Creating inverse match set")
-		if obj, err = match.NewInverseSet(lm.Window.Nanoseconds(), toLogTerms(lm.Match), toLogResets(lm.Negate)); err != nil {
-			log.Error().Err(err).Msg("Failed to create inverse match set")
-			return nil, err
-		}
-	} else {
-		if len(lm.Match) == 1 {
-			log.Debug().Any("term", toLogTerms(lm.Match)[0]).Msg("Creating match single")
-			if obj, err = match.NewMatchSingle(toLogTerms(lm.Match)[0]); err != nil {
-				log.Error().Err(err).Msg("Failed to create match single")
-				return nil, err
-			}
-		} else {
-			log.Debug().Any("terms", toLogTerms(lm.Match)).Msg("Creating match set")
-			if obj, err = match.NewMatchSet(lm.Window.Nanoseconds(), toLogTerms(lm.Match)...); err != nil {
-				log.Error().Err(err).Msg("Failed to create match set")
-				return nil, err
-			}
-		}
+	switch {
+	case len(node.Negate) > 0:
+		return match.NewInverseSet(
+			node.Window.Nanoseconds(),
+			logTrms,
+			toLogResets(node.Negate),
+		)
+
+	case len(logTrms) == 1:
+		return match.NewMatchSingle(logTrms[0])
+
+	default:
+		return match.NewMatchSet(node.Window.Nanoseconds(), logTrms...)
 	}
-
-	return obj, nil
 }

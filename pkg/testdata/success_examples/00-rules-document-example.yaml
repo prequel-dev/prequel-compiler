@@ -9,6 +9,7 @@ rules:
         window: 5s
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - commonExpression1
           - "this is another match"
@@ -22,14 +23,9 @@ rules:
         window: 10s
         event:
           source: cre.log.kafka
+          origin: true
         order:
           - regex: "foo(.+)bar"
-          - commonExpression1
-          - commonExpression2
+          - regex: "bo(.+)r"
+          - value: "some other match" 
 
-# Optional terms section for reusing common conditions
-terms:
-  commonExpression1:
-    regex: "bo(.+)r"
-  commonExpression2:
-    value: "some other match" 

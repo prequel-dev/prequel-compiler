@@ -8,13 +8,14 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
-      sequence:
+      set:
         window: 10s
         event:
           source: kafka
-        order:
+          origin: true
+        match:
           - value: "io.vertx.core.VertxException: Thread blocked"
             count: 3
 `
@@ -27,65 +28,58 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      window: 1s
-      event:
-        source: k8s
-      match:
-        - field: "reason"
-          value: "Killing"
-        - field: "reason"
-          value: "NodeShutdown"
-      negate:
-        - SIGTERM
-  term3:
-    sequence:
-      window: 5s
-      correlations:
-        - hostname
-      order:
-        - sequence:
-            window: 1s
-            event:
-              source: nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              source: nginx
-            match:
-              - 90%
-        - set:
-            event:
-              source: k8s
-            match:
-              - field: "reason"
-                value: "Killing"
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              window: 1s
+              event:
+                source: k8s
+              match:
+                - field: "reason"
+                  value: "Killing"
+                - field: "reason"
+                  value: "NodeShutdown"
+              negate:
+                - SIGTERM
+          - sequence:
+              window: 5s
+              correlations:
+                - hostname
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
 `
 
 var TestSuccessComplexRule3 = `
@@ -101,28 +95,23 @@ rules:
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      match:
-        - field: "reason"
-          value: "Killing"
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              match:
+                - field: "reason"
+                  value: "Killing"
 `
 
 var TestSuccessComplexRule4 = `
@@ -138,121 +127,70 @@ rules:
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term4
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - sequence:
+              window: 5s
+              correlations:
+                - container_id
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
+          - sequence:
+              window: 5s
+              correlations:
+                - container_id
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
         negate:
-          - term3
-
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  
-  term2:
-    sequence:
-      window: 5s
-      correlations:
-        - container_id
-      order:
-        - sequence:
-            window: 1s
-            event:
-              source: nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              source: nginx
-            match:
-              - 90%
-        - set:
-            event:
-              source: k8s
-            match:
-              - field: "reason"
-                value: "Killing"
-  term4:
-    sequence:
-      window: 5s
-      correlations:
-        - container_id
-      order:
-        - sequence:
-            window: 1s
-            event:
-              source: nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              source: nginx
-            match:
-              - 90%
-        - set:
-            event:
-              source: k8s
-            match:
-              - field: "reason"
-                value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      match:
-        - field: "reason"
-          value: "NodeShutdown"
-`
-
-var TestSuccessComplexRule5 = `
-rules:
-  - cre:
-      id: TestSuccessComplexRule5
-      severity: 1
-    metadata:
-      id: "J7uRQTGpGMyL1iFpssnBeS"
-      hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
-    rule:
-      sequence:
-        window: 30s
-        correlations:
-          - hostname
-        order:
-          - term1
-          - term2
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        src: log
-        origin: true
-        imageUrl: "*rabbitmq*"
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        src: k8s
-      match:
-      - field: "reason"
-        value: "Killing"
+          - set:
+              event:
+                source: k8s
+              match:
+                - field: "reason"
+                  value: "NodeShutdown"
 `
 
 var TestSuccessNegateOptions1 = `
@@ -262,13 +200,14 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
-      sequence:
+      set:
         window: 10s
         event:
           source: kafka
-        order:
+          origin: true
+        match:
           - value: "io.vertx.core.VertxException: Thread blocked"
             count: 3
         negate:
@@ -276,12 +215,12 @@ rules:
             window: 10s
             slide: 1s
             anchor: 0
-            abs: true
+            absolute: true
           - value: "SIGKILL"
             window: 10s
             slide: 1s
             anchor: 0
-            abs: true
+            absolute: true
 `
 
 var TestSuccessNegateOptions2 = `
@@ -291,49 +230,40 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
+          - sequence:
+              window: 10s
+              event:
+                source: log
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              match:
+              - field: "reason"
+                value: "Killing"
         negate:
-          - value: term3
+          - set:
+              event:
+                source: log
+              match:
+                - value: "Killing"
             window: 10s
             slide: 1s
             anchor: 0
-            abs: true
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: log
-        origin: true
-        image_url: "*rabbitmq*"
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      match:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: log
-      match:
-        - value: "Killing"
+            absolute: true
 `
 
 var TestSuccessSimpleExtraction = `
@@ -343,12 +273,13 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         event:
           source: log
+          origin: true
         correlations:
           - corr1
         order:
@@ -370,7 +301,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       script:
        code: |
@@ -387,7 +318,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         match:
@@ -402,7 +333,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
@@ -433,7 +364,7 @@ rules:
     metadata:
       id: J7uRQTGpGMyL1iFpssnBeS
       hash: rdJLgqYgkEp8jg8Qks1qiq
-      generation: 1
+      gen: 1
     rule:
       set:
         match:
@@ -467,7 +398,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 30s
@@ -492,7 +423,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 10s
@@ -510,7 +441,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 10s
@@ -528,7 +459,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -546,7 +477,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10d                                                       # invalid window
@@ -564,7 +495,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       superduperset:                                                       # unsupported rule type
         window: 10s
@@ -581,60 +512,53 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      negate:
-        - field: "reason"
-          value: "NodeShutdown"
-  term3:
-    sequence:
-      window: 5s
-      correlations:
-        - container_id
-      order:
-        - sequence:
-            window: 1s
-            event:
-              source: nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              source: nginx
-            match:
-              - 90%
-        - set:
-            event:
-              source: k8s
-            match:
-              - field: "reason"
-                value: "Killing"
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "NodeShutdown"
+          - sequence:
+              window: 5s
+              correlations:
+                - container_id
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
 `
 
 var TestFailNegativeCondition1 = ` # Line 1 starts here
@@ -644,63 +568,57 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        src: log
-        origin: true
-        imageUrl: "*rabbitmq*"
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        src: k8s
-      negate:
-        - field: "reason"
-          value: "NodeShutdown"
-  term3:
-    sequence:
-      window: 5s
-      correlations:
-        - container_id
-      order:
-        - sequence:
-            window: 1s
-            event:
-              src: log
-              containerName: nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              src: log
-              containerName: nginx
-            match:
-              - 90%
-        - set:
-            event:
-              src: k8s
-            match:
-              - field: "reason"
-                value: "Killing"
+          - sequence:
+              window: 10s
+              event:
+                source: log
+                origin: true
+                imageUrl: "*rabbitmq*"
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "NodeShutdown"
+          - sequence:
+              window: 5s
+              correlations:
+                - container_id
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: log
+                      containerName: nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: log
+                      containerName: nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
+   
 `
 
 var TestFailNegativeCondition2 = ` # Line 1 starts here
@@ -710,36 +628,31 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        src: log
-        origin: true
-        imageUrl: "*rabbitmq*"
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        src: k8s
-      negate:
-      - field: "reason"
-        value: "Killing"
+          - sequence:
+              window: 10s
+              event:
+                source: log
+                origin: true
+                imageUrl: "*rabbitmq*"
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              negate:
+              - field: "reason"
+                value: "Killing"
 `
 
 var TestFailNegateOptions3 = ` # Line 1 starts here
@@ -749,48 +662,40 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      match:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      negate:
-        - field: "reason"
-          value: "Killing"
-          window: 10s
-          slide: 1s
-          anchor: 0
-          abs: true
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              match:
+              - field: "reason"
+                value: "Killing"
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "Killing"
+                  window: 10s
+                  slide: 1s
+                  anchor: 0
+                  abs: true
 `
 
 var TestFailNegateOptions4 = ` # Line 1 starts here
@@ -800,49 +705,41 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              match:
+              - field: "reason"
+                value: "Killing"
         negate:
-          - term3
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      match:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      negate:
-        - field: "reason"
-          value: "Killing"
-          window: 10s
-          slide: 1s
-          anchor: 0
-          abs: true
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "Killing"
+                  window: 10s
+                  slide: 1s
+                  anchor: 0
+                  abs: true
 `
 
 var TestFailTermsSyntaxError1 = ` # Line 1 starts here
@@ -852,48 +749,40 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      moooch:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      negate:
-        - field: "reason"
-          value: "Killing"
-          window: 10s
-          slide: 1s
-          anchor: 0
-          abs: true
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              moooch:
+              - field: "reason"
+                value: "Killing"
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "Killing"
+                  window: 10s
+                  slide: 1s
+                  anchor: 0
+                  abs: true
 `
 
 var TestFailTermsSyntaxError2 = ` # Line 1 starts here
@@ -903,49 +792,41 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: k8s
-      window: 10d
-      match:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      negate:
-        - field: "reason"
-          value: "Killing"
-          window: 10s
-          slide: 1s
-          anchor: 0
-          abs: true
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - set:
+              event:
+                source: k8s
+              window: 10d
+              match:
+              - field: "reason"
+                value: "Killing"
+          - set:
+              event:
+                source: k8s
+              negate:
+                - field: "reason"
+                  value: "Killing"
+                  window: 10s
+                  slide: 1s
+                  anchor: 0
+                  abs: true
 `
 
 var TestFailTermsSemanticError1 = ` # Line 1 starts here
@@ -955,49 +836,37 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 30s
         correlations:
           - hostname
         order:
-          - term1
-          - term2
-          - term3
-
-terms:        
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    sequence:
-      event:
-        source: k8s
-      window: 1s
-      order:
-      - field: "reason"
-        value: "Killing"
-  term3:
-    set:
-      event:
-        source: k8s
-      match:
-        - field: "reason"
-          value: "Killing"
-          window: 10s
-          slide: 1s
-          anchor: 0
-          abs: true
+          - sequence:
+              window: 10s
+              event:
+                source: rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - sequence:
+              event:
+                source: k8s
+              window: 1s
+              order:
+              - field: "reason"
+                value: "Killing"
+          - set:
+              event:
+                source: k8s
+              match:
+                - field: "reason"
+                  value: "Killing"
 `
 
 var TestFailTermsSemanticError2 = ` # Line 1 starts here
@@ -1007,7 +876,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       sequence:
         window: 0s
@@ -1015,6 +884,7 @@ rules:
           - hostname
         order:
           - term1
+          - term2
 `
 
 var TestFailTermsSemanticError3 = ` # Line 1 starts here
@@ -1024,7 +894,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         correlations:
@@ -1045,7 +915,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         correlations:
@@ -1066,7 +936,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         event:
@@ -1088,7 +958,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         event:
@@ -1105,7 +975,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -1122,12 +992,13 @@ rules:
       severity: 1
     metadata:
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
         event:
           source: kafka
+          origin: true
         match:
           - regex: "io.vertx.core.VertxException: Thread blocked"
 `
@@ -1139,7 +1010,7 @@ rules:
       severity: 1
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -1157,7 +1028,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -1175,7 +1046,7 @@ rules:
     metadata:
       id: "zzzzzz zzzzzz zzzzzz zzzzzz"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -1193,7 +1064,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "asdfas asdf     a"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 10s
@@ -1210,7 +1081,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnBeS"
       hash: "rdJLgqYgkEp8jg8Qks1qiq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 50s
@@ -1235,7 +1106,7 @@ rules:
     metadata:
       id: "J7uRQTGpGMyL1iFpssnB3S"
       hash: "rdJLgqYgkEp8jg8Qks1qqq"
-      generation: 1
+      gen: 1
     rule:
       set:
         window: 50s
@@ -1252,4 +1123,62 @@ rules:
                 origin: true
               match:
                 - regex: "io.vertx.core.VertxException: Thread blocked"
+`
+
+var TestFailMissingWindow = `
+rules:
+  - cre:
+      id: TestMissingWindow
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnB3S"
+      hash: "rdJLgqYgkEp8jg8Qks1qqq"
+    rule:
+      set:
+        event:
+          source: kafka
+        match:
+          - raw1
+          - raw2
+`
+
+var TestFailMaxDepthExceeded = `
+rules:
+  - cre:
+      id: TestFailMaxDepthExceeded
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnB3S"
+      hash: "rdJLgqYgkEp8jg8Qks1qqq"
+    rule:
+      set:
+        match:
+          - set:
+              match:
+                - set:
+                    window: 10s
+                    event:
+                      source: kafka
+                      origin: true
+                    match:
+                      - raw1
+                      - raw2
+`
+
+var TestFailMaxRankExceeded = `
+rules:
+  - cre:
+      id: TestFailMaxRankExceeded
+    metadata:
+      id: "J7uRQTGpGMyL1iFpssnB3S"
+      hash: "rdJLgqYgkEp8jg8Qks1qqq"
+    rule:
+      set:
+        window: 10s
+        event:
+          source: kafka
+          origin: true
+        match:
+          - rank0
+          - rank1
+          - rank2
+          - rank3
 `

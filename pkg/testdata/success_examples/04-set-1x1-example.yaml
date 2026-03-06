@@ -8,6 +8,7 @@ rules:
       set:
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - value: "test"
         negate:

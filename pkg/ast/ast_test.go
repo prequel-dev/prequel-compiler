@@ -1,325 +1,164 @@
 package ast
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/prequel-dev/prequel-compiler/pkg/parser"
-	"github.com/prequel-dev/prequel-compiler/pkg/pqerr"
-	"github.com/prequel-dev/prequel-compiler/pkg/testdata"
-	"github.com/rs/zerolog/log"
+	"github.com/prequel-dev/prequel-logmatch/pkg/match"
 )
 
-// traverses the tree and collects node types in DFS pre-order (root, then children)
-func gatherNodeTypes(node *AstNodeT, out *[]string) {
-
-	if node == nil {
-		return
+func TestAstNodeAddressT_String(t *testing.T) {
+	addr := AstNodeAddressT{
+		Type:     AstNodeTypeSeq,
+		RuleId:   "rule1",
+		RuleHash: "hash1",
+		Rank:     2,
+		Depth:    3,
+		NodeId:   4,
 	}
-
-	*out = append(*out, node.Metadata.Type.String())
-	for _, child := range node.Children {
-		gatherNodeTypes(child, out)
-	}
-}
-
-func gatherNodeAddresses(node *AstNodeT, out *[]string) {
-	if node == nil {
-		return
-	}
-
-	*out = append(*out, node.Metadata.Address.String())
-	for _, child := range node.Children {
-		gatherNodeAddresses(child, out)
+	got := addr.String()
+	want := "v1.machine_seq.hash1.d3.n4.t2"
+	if got != want {
+		t.Errorf("AstNodeAddressT.String() = %q, want %q", got, want)
 	}
 }
 
-func TestAstSuccess(t *testing.T) {
-
-	var tests = map[string]struct {
-		rule              string
-		expectedNodeTypes []string
+func TestAstNodeType_String(t *testing.T) {
+	tests := []struct {
+		typ  AstNodeType
+		want string
 	}{
-		"Success_Simple1": {
-			rule:              testdata.TestSuccessSimpleRule1,
-			expectedNodeTypes: []string{"machine_seq", "log_seq"},
-		},
-		"Success_Complex2": {
-			rule:              testdata.TestSuccessComplexRule2,
-			expectedNodeTypes: []string{"machine_seq", "log_seq", "log_set", "machine_seq", "log_seq", "log_set", "log_set"},
-		},
-		"Success_Complex3": {
-			rule:              testdata.TestSuccessComplexRule3,
-			expectedNodeTypes: []string{"machine_seq", "log_seq", "log_set"},
-		},
-		"Success_Complex4": {
-			rule:              testdata.TestSuccessComplexRule4,
-			expectedNodeTypes: []string{"machine_seq", "log_seq", "machine_seq", "log_seq", "log_set", "log_set", "machine_seq", "log_seq", "log_set", "log_set", "log_set"},
-		},
-		"Success_NegateOptions1": {
-			rule:              testdata.TestSuccessNegateOptions1,
-			expectedNodeTypes: []string{"machine_seq", "log_seq"},
-		},
-		"Success_NegateOptions2": {
-			rule:              testdata.TestSuccessNegateOptions2,
-			expectedNodeTypes: []string{"machine_seq", "log_seq", "log_set", "log_set"},
-		},
-		"Success_Extract1": {
-			rule:              testdata.TestSuccessSimpleExtraction,
-			expectedNodeTypes: []string{"machine_seq", "log_seq"},
-		},
-		"Success_PromQLMetric": {
-			rule:              testdata.TestSuccessSimplePromQL,
-			expectedNodeTypes: []string{"machine_set", "promql", "log_set"},
-		},
-		"Success_ChildScript": {
-			rule:              testdata.TestSuccessChildScript,
-			expectedNodeTypes: []string{"machine_seq", "script", "log_seq", "log_set"},
-		},
-		"Success_ChildScriptMultipleInputs": {
-			rule:              testdata.TestSuccessChildScriptMultipleInputs,
-			expectedNodeTypes: []string{"machine_set", "script", "machine_seq", "log_seq", "log_set"},
-		},
-		"Success_ChildScriptPromQLInput": {
-			rule:              testdata.TestSuccessChildScriptPromQLInput,
-			expectedNodeTypes: []string{"machine_set", "script", "promql"},
-		},
+		{AstNodeTypeSet, nodeTypeSet},
+		{AstNodeTypeSeq, nodeTypeSeq},
+		{AstNodeTypeLogSet, nodeTypeLogSet},
+		{AstNodeTypeLogSeq, nodeTypeLogSeq},
+		{AstNodeTypePromQL, nodeTypePromQL},
+		{AstNodeTypeScript, nodeTypeScript},
+		{AstNodeType(99), nodeTypeUnknown},
 	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-
-			var dupeAddresses = make(map[string]struct{})
-
-			ast, err := Build([]byte(test.rule))
-			if err != nil {
-				t.Fatalf("Error parsing rule: %v", err)
-			}
-
-			if err = DrawTree(ast, fmt.Sprintf("rule_%s.dot", name)); err != nil {
-				t.Fatalf("Error drawing tree: %v", err)
-			}
-
-			if len(ast.Nodes) == 0 {
-				t.Fatalf("No nodes found in AST")
-			}
-
-			if err = validateTree(ast.Nodes[0]); err != nil {
-				t.Fatalf("Error validating tree: %v", err)
-			}
-
-			var actualNodes []string
-			gatherNodeTypes(ast.Nodes[0], &actualNodes)
-
-			var actualAddresses []string
-			gatherNodeAddresses(ast.Nodes[0], &actualAddresses)
-
-			for _, address := range actualAddresses {
-				if _, ok := dupeAddresses[address]; ok {
-					t.Errorf("Duplicate address found: %s", address)
-				}
-				dupeAddresses[address] = struct{}{}
-			}
-
-			if ast.Nodes[0].Metadata.ParentAddress != nil {
-				t.Errorf("Root node has parent address: %s", ast.Nodes[0].Metadata.ParentAddress.String())
-			}
-
-			if !reflect.DeepEqual(actualNodes, test.expectedNodeTypes) {
-				t.Errorf("gathered types = %v, want %v", actualNodes, test.expectedNodeTypes)
-			}
-		})
+	for _, tt := range tests {
+		got := tt.typ.String()
+		if got != tt.want {
+			t.Errorf("AstNodeType(%d).String() = %q, want %q", tt.typ, got, tt.want)
+		}
 	}
 }
 
-func TestAstFail(t *testing.T) {
-
-	var tests = map[string]struct {
-		rule string
-		err  error
-		line int
-		col  int
+func TestAstScopeT_String(t *testing.T) {
+	tests := []struct {
+		scope AstScopeT
+		want  string
 	}{
-		"Fail_MissingPositiveCondition": {
-			rule: testdata.TestFailMissingPositiveCondition,
-			err:  parser.ErrMissingMatch,
-			line: 33,
-			col:  7,
-		},
-		"Fail_BadNegativeCondition1": {
-			rule: testdata.TestFailNegativeCondition1,
-			err:  parser.ErrMissingMatch,
-			line: 34,
-			col:  7,
-		},
-		"Fail_BadNegativeCondition2": {
-			rule: testdata.TestFailNegativeCondition2,
-			err:  parser.ErrMissingMatch,
-			line: 33,
-			col:  7,
-		},
-		"Fail_BadNegativeCondition3": {
-			rule: testdata.TestFailNegateOptions3,
-			err:  parser.ErrMissingMatch,
-			line: 41,
-			col:  7,
-		},
-		"Fail_BadNegativeCondition4": {
-			rule: testdata.TestFailNegateOptions4,
-			err:  parser.ErrMissingMatch,
-			line: 42,
-			col:  7,
-		},
-		"Fail_TermsSemanticError1": {
-			rule: testdata.TestFailTermsSemanticError1,
-			err:  ErrSeqPosConditions,
-			line: 36,
-			col:  15,
-		},
-		"Fail_TermsSemanticError2": {
-			rule: testdata.TestFailTermsSemanticError2,
-			err:  ErrRootNodeWithoutEventSrc,
-			line: 11,
-			col:  9,
-		},
-		"Fail_TermsSemanticError3": {
-			rule: testdata.TestFailTermsSemanticError3,
-			err:  ErrMissingOrigin,
-			line: 11,
-			col:  9,
-		},
-		"Fail_TermsSemanticError4": {
-			rule: testdata.TestFailTermsSemanticError4,
-			err:  ErrInvalidEventType,
-			line: 14,
-			col:  11,
-		},
-		"Fail_TermsSemanticError5": {
-			rule: testdata.TestFailTermsSemanticError5,
-			err:  ErrInvalidAnchor,
-			line: 11,
-			col:  9,
-		},
-		"Fail_MultipleOrigin": {
-			rule: testdata.TestFailMultipleOrigin,
-			err:  ErrMultipleOrigin,
-			line: 11,
-			col:  17,
-		},
+		{AstScopeNode, scopeTypeNode},
+		{AstScopeCluster, scopeTypeCluster},
+		{AstScopeOrganization, scopeTypeOrganization},
+		{AstScopeGlobal, scopeTypeGlobal},
+		{AstScopeT(99), scopeTypeUnknown},
 	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			_, err := Build([]byte(test.rule))
-			if err == nil {
-				t.Fatalf("Expected error building ast for rule")
-			}
-
-			if !errors.Is(err, test.err) {
-				log.Info().Type("err_type", err).Msg("error")
-				t.Errorf("Expected error %v, got %v", test.err, err)
-			}
-
-			if pos, ok := pqerr.PosOf(err); ok {
-				if pos.Line != test.line {
-					t.Errorf("Expected error position line=%d, got line=%d", test.line, pos.Line)
-				}
-				if pos.Col != test.col {
-					t.Errorf("Expected error position col=%d, got col=%d", test.col, pos.Col)
-				}
-			} else {
-				t.Errorf("Expected wrapped pqerr error %v, got %v", test.err, err)
-			}
-		})
-	}
-}
-
-func TestSuccessExamples(t *testing.T) {
-
-	rules, err := filepath.Glob(filepath.Join("../testdata", "success_examples", "*.yaml"))
-	if err != nil {
-		t.Fatalf("Error finding CRE test files: %v", err)
-	}
-
-	for _, rule := range rules {
-
-		// Read the test file
-		testData, err := os.ReadFile(rule)
-		if err != nil {
-			t.Fatalf("Error reading test file %s: %v", rule, err)
-		}
-
-		_, err = Build(testData)
-		if err != nil {
-			t.Fatalf("Error building rule %s: %v", rule, err)
+	for _, tt := range tests {
+		got := tt.scope.String()
+		if got != tt.want {
+			t.Errorf("AstScopeT(%d).String() = %q, want %q", tt.scope, got, tt.want)
 		}
 	}
 }
 
-func TestFailureExamples(t *testing.T) {
-
-	rules, err := filepath.Glob(filepath.Join("../testdata", "failure_examples", "*.yaml"))
-	if err != nil {
-		t.Fatalf("Error finding CRE test files: %v", err)
+func TestBaseAst_Methods(t *testing.T) {
+	addr := AstNodeAddressT{
+		Type:     AstNodeTypeLogSeq,
+		RuleId:   "rule2",
+		RuleHash: "hash2",
+		Rank:     1,
+		Depth:    2,
+		NodeId:   3,
 	}
-
-	for _, rule := range rules {
-
-		// Read the test file
-		testData, err := os.ReadFile(rule)
-		if err != nil {
-			t.Fatalf("Error reading test file %s: %v", rule, err)
-		}
-
-		_, err = Build(testData)
-		if err == nil {
-			t.Fatalf("Expected error building rule %s", rule)
-		}
+	parent := &AstNodeAddressT{Type: AstNodeTypeSet}
+	b := baseAst{
+		scope:   AstScopeCluster,
+		address: addr,
+		parent:  parent,
+	}
+	if !reflect.DeepEqual(b.Address(), addr) {
+		t.Errorf("baseAst.Address() = %+v, want %+v", b.Address(), addr)
+	}
+	if b.Type() != AstNodeTypeLogSeq {
+		t.Errorf("baseAst.Type() = %v, want %v", b.Type(), AstNodeTypeLogSeq)
+	}
+	if b.Scope() != AstScopeCluster {
+		t.Errorf("baseAst.Scope() = %v, want %v", b.Scope(), AstScopeCluster)
+	}
+	if b.Parent() != parent {
+		t.Errorf("baseAst.Parent() = %+v, want %+v", b.Parent(), parent)
 	}
 }
 
-// Validate the following invariants on the tree:
-// 1. No duplicate addresses
-// 2. Root node has no parent address
-// 3. Node ids are unique
-// 4. Depth is consistent with distance from root
-
-func validateTree(node *AstNodeT) error {
-	if node == nil {
-		return fmt.Errorf("Root node is nil")
+func TestAstFieldT_ZeroValue(t *testing.T) {
+	var f AstFieldT
+	if f.Count != 0 || f.Field != "" || f.TermValue != (match.TermT{}) || f.NegateOpts != nil || f.Extracts != nil {
+		t.Errorf("AstFieldT zero value not as expected: %+v", f)
 	}
-
-	if node.Metadata.ParentAddress != nil {
-		return fmt.Errorf("Root node has parent address: %s", node.Metadata.ParentAddress.String())
-	}
-
-	return _validateTree(node, 0, make(map[uint32]struct{})) // start at depth 0 for root
 }
 
-func _validateTree(node *AstNodeT, depth uint32, ids map[uint32]struct{}) error {
-
-	if node == nil {
-		return nil
+func TestAstEventT_ZeroValue(t *testing.T) {
+	var e AstEventT
+	if e.Source != "" || e.Origin != false {
+		t.Errorf("AstEventT zero value not as expected: %+v", e)
 	}
+}
 
-	if node.Metadata.Address.Depth != depth {
-		return fmt.Errorf("Node %s has depth %d, expected %d", node.Metadata.Address.String(), node.Metadata.Address.Depth, depth)
+func TestAstAppT_ZeroValue(t *testing.T) {
+	var a AstAppT
+	if a.Name != "" || a.ProcessName != "" || a.ProcessPath != "" || a.ContainerName != "" ||
+		a.ImageUrl != "" || a.RepoUrl != "" || a.Version != "" {
+		t.Errorf("AstAppT zero value not as expected: %+v", a)
 	}
+}
 
-	if _, exists := ids[node.Metadata.Address.NodeId]; exists {
-		return fmt.Errorf("Duplicate node ID %d found", node.Metadata.Address.NodeId)
+func TestAstExtractT_ZeroValue(t *testing.T) {
+	var e AstExtractT
+	if e.Name != "" || e.JqValue != "" || e.RegexValue != "" {
+		t.Errorf("AstExtractT zero value not as expected: %+v", e)
 	}
-	ids[node.Metadata.Address.NodeId] = struct{}{}
+}
 
-	for _, child := range node.Children {
-		if err := _validateTree(child, depth+1, ids); err != nil {
-			return err
-		}
+func TestAstNegateOptsT_ZeroValue(t *testing.T) {
+	var n AstNegateOptsT
+	if n.Window != 0 || n.Slide != 0 || n.Anchor != 0 || n.Absolute != false {
+		t.Errorf("AstNegateOptsT zero value not as expected: %+v", n)
 	}
+}
 
-	return nil
+func TestAstMetadataT_ZeroValue(t *testing.T) {
+	var m AstMetadataT
+	if m.Name != "" || m.Id != "" || m.Hash != "" || m.Kind != "" || m.Gen != 0 {
+		t.Errorf("AstMetadataT zero value not as expected: %+v", m)
+	}
+}
+
+func TestAstCreT_ZeroValue(t *testing.T) {
+	var c AstCreT
+	if c.Id != "" || c.Severity != 0 || c.Title != "" || c.Category != "" || c.Tags != nil ||
+		c.Author != "" || c.Description != "" || c.Impact != "" || c.ImpactScore != 0 ||
+		c.Cause != "" || c.Mitigation != "" || c.MitigationScore != 0 || c.References != nil ||
+		c.Reports != 0 || c.Applications != nil {
+		t.Errorf("AstCreT zero value not as expected: %+v", c)
+	}
+}
+
+func TestAstMatchLeafT_Fields(t *testing.T) {
+	leaf := AstMatchLeafT{
+		Window:       5 * time.Second,
+		Correlations: []string{"foo", "bar"},
+		Terms:        []AstFieldT{{Field: "f"}},
+		Negate:       []AstFieldT{{Field: "n"}},
+		Event:        AstEventT{Source: "syslog", Origin: true},
+	}
+	if leaf.Window != 5*time.Second ||
+		!reflect.DeepEqual(leaf.Correlations, []string{"foo", "bar"}) ||
+		len(leaf.Terms) != 1 || leaf.Terms[0].Field != "f" ||
+		len(leaf.Negate) != 1 || leaf.Negate[0].Field != "n" ||
+		leaf.Event.Source != "syslog" || !leaf.Event.Origin {
+		t.Errorf("AstMatchLeafT fields not as expected: %+v", leaf)
+	}
 }

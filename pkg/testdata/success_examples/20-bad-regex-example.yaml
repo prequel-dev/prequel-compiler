@@ -8,5 +8,6 @@ rules:
       set:
         event:
           source: cre.log.kafka
+          origin: true
         match:
           - "\\[emerg] (.+) still could not bind()" # use regex: instead

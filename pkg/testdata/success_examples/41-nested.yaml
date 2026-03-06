@@ -10,52 +10,44 @@ rules:
         correlations:
           - hostname
         order:
-          - term1
-          - term3
+          - sequence:
+              window: 10s
+              event:
+                source: cre.log.rabbitmq
+                origin: true
+              order:
+                - value: Discarding message
+                  count: 10
+                - Mnesia overloaded
+              negate:
+                - SIGTERM
+          - sequence:
+              window: 5s
+              correlations:
+                - container_id
+              order:
+                - sequence:
+                    window: 1s
+                    event:
+                      source: cre.log.nginx
+                    order:
+                      - error message
+                      - shutdown
+                - set:
+                    event:
+                      source: cre.log.nginx
+                    match:
+                      - 90%
+                - set:
+                    event:
+                      source: cre.prequel.k8s
+                    match:
+                      - field: "reason"
+                        value: "Killing"
         negate:
-          - term2
-
-terms:
-  term1:
-    sequence:
-      window: 10s
-      event:
-        source: cre.log.rabbitmq
-        origin: true
-      order:
-        - value: Discarding message
-          count: 10
-        - Mnesia overloaded
-      negate:
-        - SIGTERM
-  term2:
-    set:
-      event:
-        source: cre.prequel.k8s
-      match:
-        - field: "reason"
-          value: "NodeShutdown"
-  term3:
-    sequence:
-      window: 5s
-      correlations:
-        - container_id
-      order:
-        - sequence:
-            window: 1s
-            event:
-              source: cre.log.nginx
-            order:
-              - error message
-              - shutdown
-        - set:
-            event:
-              source: cre.log.nginx
-            match:
-              - 90%
-        - set:
-            event:
-              source: cre.prequel.k8s
-            match:
-              - field: "reason"
-                value: "Killing"
+          - set:
+              event:
+                source: cre.prequel.k8s
+              match:
+                - field: "reason"
+                  value: "NodeShutdown"
